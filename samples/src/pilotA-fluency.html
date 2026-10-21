@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>01 · 看不见的学会</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:100vw;height:auto}</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script>
+// 01 · 流畅性错觉（试片 16 拍 = 12.8 秒）
+function cardContent(w, h, title, l1, l2, stamp){
+  pText(title, 44, 96, 46, {font: SERIF, weight: 900});
+  line(44, 124, w - 44, 124, C.pInk3, 1.5);
+  pText(l1, 44, 184, 30, {font: SERIF, weight: 400, color: C.pInk2});
+  pText(l2, 44, 228, 30, {font: SERIF, weight: 400, color: C.pInk2});
+  rectStamp(w - 132, h - 72, stamp, 1, 30, -.09);
+}
+function sHook(t){
+  scene(t, -0.4, 12.2, A => {
+    const hk = eo(segB(t, .3, 1.3));
+    txtIn('同一段内容，两种排版', W / 2, 130, hk, {size: 36, weight: 700, color: C.ink2, ls: 4});
+
+    // 主角物件：右卡第 0 帧就在
+    paperCard(1090, 186 - 6 * Math.sin(t * .9), 580, 300, .016, 1, (w, h) => cardContent(w, h, '读着费劲', '字小、对比低，', '你就觉得没看明白。', '费力≠没学会'));
+    // 左卡从画外滑入
+    const kL = eob(segB(t, 1.1, 2.3));
+    if (kL > 0) paperCard(lerp(-640, 250, kL), 186 - 6 * Math.sin(t * .9 + 1.2), 580, 300, -.014, kL, (w, h) => cardContent(w, h, '读得顺', '你判断"我懂了没有"，', '靠的是读起来顺不顺。', '顺≠记住'));
+
+    const kk = eo(segB(t, 5.2, 6.4));
+    txtIn('读得顺，是被骗的开始', 250, 566, kk, {size: 46, weight: 900, font: SERIF, color: C.goldHi, align: 'left', glow: 'rgba(232,184,92,0.3)'});
+
+    const bars = [
+      {x: 300, h: 206, label: '自评', v: '88', col: C.gold, b: 3.0},
+      {x: 432, h: 118, label: '实测', v: '57', col: '#7FA6E0', b: 3.4},
+      {x: 1082, h: 104, label: '自评', v: '52', col: C.gold, b: 3.8},
+      {x: 1214, h: 168, label: '实测', v: '74', col: '#7FA6E0', b: 4.2},
+    ];
+    const base = 828;
+    bars.forEach(o => {
+      const k = eob(segB(t, o.b, o.b + 1.1));
+      if (k <= 0) return;
+      const h = o.h * k;
+      ctx.save(); ctx.globalAlpha *= .95;
+      rrect(o.x, base - h, 96, h, 5); ctx.fillStyle = o.col; ctx.fill();
+      ctx.restore();
+      txt(o.v, o.x + 48, base - h - 16, {size: 36, weight: 900, font: MONO, alpha: k});
+      txt(o.label, o.x + 48, base + 30, {size: 24, color: C.ink2, alpha: k});
+    });
+    line(260, base + 2, 1450, base + 2, 'rgba(242,237,227,0.28)', 2);
+  }, {cx: W / 2, cy: 430, push: .02});
+}
+window.EP = {
+  NO: '01', BEATS: 18,
+  SUBS: [
+    [0.2, 4.2, '同一段内容，换成两种排版，你判断自己学会的程度会不一样', 'Same text, two layouts — and you judge your own learning differently.'],
+    [4.4, 8.2, '读起来越顺，你越觉得自己懂了', 'The smoother it reads, the more you think you have it.'],
+    [8.4, 11.8, '这叫流畅性错觉：你把"读得顺"当成了"记得住"', 'The fluency illusion: you mistake easy reading for retention.'],
+  ],
+  TOPLABELS: [[0.6, 11.6, '认知 · 流畅性错觉']],
+  NOTES: [[3, 11.4, '柱高为示意，非真实实验数据']],
+  SCENES: [
+    sHook,
+    t => titleCard(t, 12, 16.6, '看不见的学会', '你把"读得顺"，当成了"记住了"', 'The Illusion of Fluency', '错觉'),
+  ],
+  cover: t => coverText(t, '读得越顺，', '越学不会？', '同一段内容，两种排版，你判断自己学会的程度会不一样。', '认知 · 流畅性错觉', {s1: 110, scrimW: 940}),
+};
+</script>
+<script src="lib.js"></script>
+</body></html>

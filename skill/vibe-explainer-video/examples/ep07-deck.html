@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>第一次出现的牌</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:100vw;height:auto}</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script>
+// 选题 1 · 52! ——《第一次出现的牌》全片（168 拍 = 134.4 秒）
+const FACT52 = '80658175170943878571660636856403766975289505440883277824000000000000';
+const SUITS = ['♠', '♥', '♦', '♣'], RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const DECK = (() => { let s = 7 >>> 0; const r = () => { s += 0x6D2B79F5; let q = Math.imul(s ^ s >>> 15, 1 | s); q ^= q + Math.imul(q ^ q >>> 7, 61 | q); return ((q ^ q >>> 14) >>> 0) / 4294967296; };
+  const d = []; for (const su of SUITS) for (const rk of RANKS) d.push([rk, su]); for (let i = d.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; } return d; })();
+
+function playingCard(x, y, w, h, rot, card, a = 1, o = {}) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x, y); ctx.rotate(rot);
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 8;
+  rrect(-w / 2, -h / 2, w, h, w * .08); ctx.fillStyle = '#F8F5EE'; ctx.fill(); ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1.2; ctx.stroke();
+  if (o.back) {
+    rrect(-w / 2 + 6, -h / 2 + 6, w - 12, h - 12, w * .06); ctx.fillStyle = '#7A1E22'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,220,180,0.35)'; ctx.lineWidth = 1;
+    for (let i = -h; i < h; i += 10) { ctx.beginPath(); ctx.moveTo(-w / 2 + 6, i); ctx.lineTo(w / 2 - 6, i + w * .6); ctx.stroke(); }
+  } else {
+    const [rk, su] = card, red = su === '♥' || su === '♦', col = red ? '#C2302B' : '#1E1E24';
+    ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = `700 ${w * .26}px ${LATIN}`; ctx.fillText(rk, -w / 2 + w * .18, -h / 2 + w * .3);
+    ctx.font = `${w * .22}px ${LATIN}`; ctx.fillText(su, -w / 2 + w * .18, -h / 2 + w * .52);
+    ctx.font = `${w * .62}px ${LATIN}`; ctx.fillText(su, 0, h * .2);
+  }
+  if (o.glow) { ctx.strokeStyle = `rgba(243,219,164,${o.glow})`; ctx.lineWidth = 4; rrect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6, w * .1); ctx.stroke(); }
+  ctx.restore();
+}
+// base + raised exponent (+ optional tail), drawn as real superscript
+function powTxt(base, exp, x, y, size, k, o = {}) {
+  if (k <= 0) return;
+  const font = o.font || SANS, wgt = o.weight || 700;
+  const wb = measure(base, size, wgt, font), we = measure(exp, size * .55, wgt, font), wt = o.tail ? measure(o.tail, size, wgt, font) : 0;
+  const total = wb + we + wt;
+  let x0 = o.align === 'left' ? x : x - total / 2;
+  const oo = Object.assign({}, o, { size, weight: wgt, font, align: 'left' });
+  txtIn(base, x0, y, k, oo);
+  txtIn(exp, x0 + wb + 2, y - size * .42, k, Object.assign({}, oo, { size: size * .55 }));
+  if (o.tail) txtIn(o.tail, x0 + wb + we + 4, y, k, oo);
+}
+function feltTable(t) {
+  const g = ctx.createRadialGradient(W / 2, 700, 80, W / 2, 700, 980);
+  g.addColorStop(0, '#1F5A43'); g.addColorStop(.55, '#123A2C'); g.addColorStop(1, 'rgba(6,10,20,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(W / 2, 760, 1100, 520, 0, 0, Math.PI * 2); ctx.fill();
+  glow(W / 2, 520, 760, '255,214,160', .12);
+}
+// the deck: riffle at frame 0, then a long fan across the felt
+function sDeck(t) {
+  const A = winB(t, -1, 12.6, .01, .6);
+  if (A <= 0) return;
+  ctx.save(); ctx.globalAlpha = A;
+  push(t, 0, 12.5, .05, W / 2, 560);
+  feltTable(t);
+  const n = 52, fan = 1;                               // fully fanned on frame 0; a ripple keeps it alive
+  const lift = eio(segB(t, 4.8, 5.6));               // cards rise and blur into the number
+  for (let i = 0; i < n; i++) {
+    const u = i / (n - 1);
+    // riffle: two halves interleaving near centre
+    const half = i % 2 ? 1 : -1;
+    const rx = W / 2 + half * 90 * (1 - fan) + (Math.sin(t * 9 + i) * 3) * (1 - fan);
+    const ry = 600 - i * .6 * (1 - fan);
+    // fan: an arc across the table
+    const ang = lerp(-1.12, 1.12, u);
+    const ripple = 26 * Math.exp(-Math.pow(((t * .55) % 1.4) * 1.0 - u * 1.2 + .1, 2) * 30);
+    const fx = W / 2 + Math.sin(ang) * 800, fy = 930 - Math.cos(ang) * 440 - ripple;
+    const x = lerp(rx, fx, fan), y = lerp(ry, fy, fan) - lift * (220 + 300 * Math.sin(u * Math.PI));
+    const rot = lerp(half * .08, ang * .9, fan);
+    const hi = i === 25 ? .9 * winB(t, 3, 4.9, .3, .3) : 0;
+    playingCard(x, y, 128, 180, rot, DECK[i], 1 - lift, { glow: hi });
+  }
+  // "first ever" tag at beat 3
+  const tk = eo(segB(t, 3, 3.6)) * (1 - lift);
+  if (tk > 0) {
+    ctx.save(); ctx.globalAlpha *= tk;
+    rectStamp(W / 2, 380, '史上首次', tk, 54, -.05);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+// the number itself: 68 digits, rolling in from the left
+function sNumber(t) {
+  const A = winB(t, 5, 12.3, .4, .5);
+  if (A <= 0) return;
+  ctx.save(); ctx.globalAlpha = A;
+  push(t, 5, 12.3, .03, W / 2, 440);
+  const k = eio(segB(t, 5, 6.6));
+  const shown = Math.floor(68 * k);
+  ctx.font = `700 46px ${MONO}`;
+  const cw = 25.4, x0 = W / 2 - 34 * cw;
+  for (let i = 0; i < 68; i++) {
+    const ch = i < shown ? FACT52[i] : String(Math.floor(Math.abs(Math.sin(t * 40 + i * 7)) * 10));
+    const a = i < shown ? 1 : (i < shown + 6 ? .35 : 0);
+    if (a <= 0) continue;
+    txt(ch, x0 + i * cw + cw / 2, 360, { size: 46, weight: 700, font: MONO, color: i < shown ? C.goldHi : C.ink3, alpha: a });
+  }
+  txt('52 张牌的排法', W / 2, 270, { size: 30, color: C.ink2, alpha: eo(segB(t, 5.2, 6)), ls: 6 });
+  const e = eo(segB(t, 6.6, 7.3));
+  const pop = t > B(6.6) ? 1 + .05 * Math.exp(-(t - B(6.6)) * 6) : 1;
+  ctx.save(); ctx.translate(W / 2, 520); ctx.scale(pop, pop);
+  powTxt('≈ 8 × 10', '67', 0, 0, 120, e, { weight: 900, font: SERIF, metal: true, glow: 'rgba(232,184,92,0.35)', glowBlur: 30 });
+  ctx.restore();
+  // compare with the atoms of the Earth
+  const c = eo(segB(t, 7.5, 8.3));
+  if (c > 0) {
+    ctx.save(); ctx.globalAlpha *= c;
+    const ex = 560, ey = 690;
+    const eg = ctx.createRadialGradient(ex - 20, ey - 20, 10, ex, ey, 70); eg.addColorStop(0, '#9CC8F0'); eg.addColorStop(1, '#2B5C8A');
+    circle(ex, ey, 64, null); ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ex, ey, 64, 0, 6.283); ctx.fill();
+    txt('地球上所有原子', 780, 676, { size: 30, color: C.ink2, align: 'left' });
+    powTxt('约 10', '50', 780, 724, 44, 1, { weight: 700, align: 'left', tail: ' 个' });
+    txt('<', 1180, 716, { size: 80, weight: 300, color: C.gold });
+    powTxt('多出 10', '17', 1300, 716, 44, 1, { weight: 700, color: C.goldHi, align: 'left', tail: ' 倍' });
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ---------------- full episode scenes ----------------
+const FACTS = [1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800];
+const PERM3 = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+const TRIO = [['A', '♠'], ['2', '♥'], ['3', '♦']];
+function sCount(t) {
+  scene(t, 18, 30.6, A => {
+    // three cards, then their six orders
+    const k0 = eo(segB(t, 18, 19)), split = eio(segB(t, 21.3, 22.3)), out = eio(segB(t, 24.2, 25));
+    if (out < 1) {
+      ctx.save(); ctx.globalAlpha *= 1 - out;
+      if (split < 1) TRIO.forEach((c, i) => playingCard(W / 2 - 170 + i * 170, 470, 140, 196, (i - 1) * .05, c, k0 * (1 - split)));
+      PERM3.forEach((p, r) => {
+        const col = r % 3, row = Math.floor(r / 3), bx = 360 + col * 600, by = 360 + row * 260;
+        const k = eo(seg(t, B(21.5) + r * .18, B(21.5) + r * .18 + .45)) * split;
+        p.forEach((ci, j) => playingCard(bx + j * 92 - 92, by, 84, 118, 0, TRIO[ci], k));
+        txt(String(r + 1), bx - 190, by + 14, { size: 36, weight: 900, color: C.gold, alpha: k, font: LATIN });
+      });
+      ctx.restore();
+    }
+    // the sequence 1, 2, 6, 24, 120 …
+    const sk = eo(segB(t, 24.5, 25.2));
+    if (sk > 0) {
+      ctx.save(); ctx.globalAlpha *= sk;
+      txt('牌的张数', 110, 380, { size: 30, color: C.ink2, align: 'left' });
+      txt('排法', 110, 560, { size: 30, color: C.ink2, align: 'left' });
+      FACTS.forEach((v, i) => {
+        const bk = eo(segB(t, 24.6 + i * .5, 25.1 + i * .5)); if (bk <= 0) return;
+        const x = 330 + i * 160;
+        txtIn(String(i + 1), x, 400, bk, { size: 64, weight: 900, font: LATIN });
+        if (i > 0) txtIn('×' + (i + 1), x - 80, 480, bk, { size: 26, color: C.goldDim, font: LATIN });
+        txtIn(v.toLocaleString('en-US'), x, 580, bk, { size: i > 6 ? 34 : 50, weight: 900, color: i === 9 ? C.goldHi : C.ink, font: SANS });
+      });
+      ctx.restore();
+    }
+  });
+  scene(t, 30, 34.6, A => {
+    docCard(560, 150, 800, 560, .012, segB(t, 30, 31.2), {
+      top: ['C. KRAMP · 1808'], title: ['Élémens d\'arithmétique', 'universelle'], titleSize: 42,
+      author: '1 · 2 · 3 · … · n', big: 'n !',
+      hlK: segB(t, 31.6, 33), seal: '阶乘', sealK: eo(segB(t, 32.4, 33)) }, t);
+  });
+}
+// powers of ten: how big 8×10^67 really is
+function sScale(t) {
+  scene(t, 34, 50.6, A => {
+    const X = e => 150 + e / 70 * 1620, Y = 560;
+    const ak = eio(segB(t, 34, 35.4));
+    line(X(0), Y, X(0) + (X(70) - X(0)) * ak, Y, 'rgba(242,237,227,0.45)', 2);
+    for (let e = 0; e <= 70; e += 10) if (X(e) <= X(0) + (X(70) - X(0)) * ak) { line(X(e), Y - 10, X(e), Y + 10, 'rgba(242,237,227,0.5)', 2); powTxt('10', String(e), X(e), Y + 54, 30, 1, { weight: 500, color: C.ink2, font: SANS }); }
+    const marks = [
+      [34.6, 9.9, '全球人口', ['80 亿'], -1, C.ink],
+      [37.6, 17.64, '宇宙年龄（秒）', ['约 4.4×10', '17'], 1, C.ink],
+      [40.6, 27.54, '人人每秒洗一副，洗到今天', ['约 3.5×10', '27'], -1, '#F3DBA4'],
+      [43.6, 50, '地球上的原子', ['约 10', '50'], 1, C.ink2],
+      [44.6, 67.9, '52!', ['≈ 8×10', '67'], -1, '#F3DBA4'],
+    ];
+    marks.forEach(([b, e, lab, val, side, col]) => {
+      const k = eo(segB(t, b, b + .6)); if (k <= 0) return;
+      const x = X(e), y0 = side < 0 ? Y - 40 : Y + 90;
+      ctx.save(); ctx.globalAlpha *= k;
+      glow(x, Y, 46, GOLD_RGB, .7); circle(x, Y, 9, col);
+      line(x, Y + side * 14, x, Y + side * (side < 0 ? 120 : 150), 'rgba(242,237,227,0.3)', 1.5);
+      const ty = side < 0 ? Y - 170 : Y + 200;
+      txt(lab, x, ty, { size: 32, color: C.ink2 });
+      if (val.length > 1) powTxt(val[0], val[1], x, ty + 56, e > 60 ? 56 : 44, 1, { weight: 900, color: col, font: SANS });
+      else txt(val[0], x, ty + 56, { size: 44, weight: 900, color: col, font: SANS });
+      ctx.restore();
+    });
+    // the gap bracket
+    const gk = eo(segB(t, 45.4, 46.6));
+    if (gk > 0) {
+      const x1 = X(27.54), x2 = x1 + (X(67.9) - x1) * gk;
+      ctx.save(); ctx.strokeStyle = C.redHi; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x1, Y - 260); ctx.lineTo(x1, Y - 280); ctx.lineTo(x2, Y - 280); ctx.lineTo(x2, Y - 260); ctx.stroke(); ctx.restore();
+      txt('还差 40 个数量级', (x1 + X(67.9)) / 2, Y - 300, { size: 40, weight: 900, color: C.redHi, alpha: gk });
+    }
+  });
+}
+// riffle shuffles keep the old order visible
+function seeded(seed) { let s = seed >>> 0; return () => { s += 0x6D2B79F5; let q = Math.imul(s ^ s >>> 15, 1 | s); q ^= q + Math.imul(q ^ q >>> 7, 61 | q); return ((q ^ q >>> 14) >>> 0) / 4294967296; }; }
+function riffle(arr, r) {
+  let cut = 0; for (let i = 0; i < arr.length; i++) if (r() < .5) cut++;
+  const L = arr.slice(0, cut), R = arr.slice(cut), out = [];
+  while (L.length || R.length) { if (r() < L.length / (L.length + R.length)) out.push(L.shift()); else out.push(R.shift()); }
+  return out;
+}
+const ORDERS = (() => { const r = seeded(19); const o = [Array.from({ length: 52 }, (_, i) => i)]; for (let k = 0; k < 7; k++) o.push(riffle(o[o.length - 1], r)); return o; })();
+function miniRow(order, y, k, label) {
+  if (k <= 0) return;
+  ctx.save(); ctx.globalAlpha *= k;
+  txt(label, 170, y + 12, { size: 30, weight: 700, color: C.ink2, align: 'left' });
+  order.forEach((ci, i) => {
+    const x = 380 + i * 27, suit = Math.floor(ci / 13), hue = [210, 0, 32, 140][suit];
+    rrect(x, y - 30, 22, 60, 4); ctx.fillStyle = `hsl(${hue},${suit === 0 ? 45 : 62}%,${40 + (ci % 13) * 2.6}%)`; ctx.fill();
+  });
+  ctx.restore();
+}
+function sOrder(t) {
+  scene(t, 50, 64.6, A => {
+    txt('颜色 = 花色，越亮 = 点数越大', W / 2, 250, { size: 26, color: C.ink3, alpha: eo(segB(t, 53.5, 54.3)) });
+    miniRow(ORDERS[0], 360, eo(segB(t, 53.5, 54.3)), '新牌');
+    miniRow(ORDERS[1], 480, eo(segB(t, 56.5, 57.3)), '洗 1 次');
+    miniRow(ORDERS[2], 600, eo(segB(t, 57.6, 58.4)), '洗 2 次');
+    const qk = eo(segB(t, 59.5, 60.2));
+    txtIn('还看得出原来的顺序', W / 2, 740, qk, { size: 44, weight: 900, color: C.goldHi });
+  }, { push: .02 });
+}
+function sRiffleAnim(t) {
+  scene(t, 64, 73.4, A => {
+    feltTable(t);
+    const cyc = ((t - B(64)) / (BEAT * 2)) % 1;
+    for (let i = 0; i < 26; i++) {
+      for (const side of [-1, 1]) {
+        const order = i * 2 + (side > 0 ? 1 : 0), u = clamp(cyc * 1.25 - order / 52 * .9);
+        const x = lerp(W / 2 + side * 330, W / 2, eio(u)), y = lerp(600 - i * 1.2, 640 - order * .9, eio(u));
+        playingCard(x, y, 150, 210, side * .1 * (1 - u), DECK[order % 52], 1, { back: true });
+      }
+    }
+  }, { push: .03, cy: 600 });
+}
+function sReveal7(t) {
+  scene(t, 79.2, 81.6, A => { popTxt('7 次', W / 2, 560, t, 79.3, { size: 260, weight: 900, font: SERIF, metal: true, glow: 'rgba(232,184,92,0.4)', glowBlur: 40 }); }, { fi: .2 });
+  scene(t, 81, 91.6, A => {
+    docCard(140, 160, 700, 560, -.015, segB(t, 81, 82.2), {
+      top: ['ANNALS OF APPLIED PROBABILITY · 1992'], title: ['Trailing the Dovetail', 'Shuffle to Its Lair'], titleSize: 40,
+      author: 'DAVE BAYER  &  PERSI DIACONIS', quote: ['seven shuffles are necessary', 'and suffice'], quoteSize: 26,
+      hlK: segB(t, 82.4, 84), seal: '七次', sealK: eo(segB(t, 83.4, 84)) }, t);
+    // distance from "truly random" after k riffles (Bayer & Diaconis 1992, table)
+    const D = [1, 1, 1, 1, .924, .614, .334, .167, .085, .043];
+    const x0 = 980, base = 760, bw = 64, gap = 18;
+    txt('离"真正洗乱"还差多少', x0 + 400, 220, { size: 30, color: C.ink2, alpha: eo(segB(t, 84, 84.6)) });
+    D.forEach((d, i) => {
+      const k = eio(segB(t, 84 + i * .25, 84.8 + i * .25)), h = 440 * d * k, x = x0 + i * (bw + gap);
+      rrect(x, base - h, bw, h, 6); ctx.fillStyle = i === 6 ? '#E8B85C' : (i < 6 ? 'rgba(240,138,114,0.85)' : 'rgba(242,237,227,0.55)'); ctx.fill();
+      txt(String(i + 1), x + bw / 2, base + 38, { size: 28, weight: 700, color: i === 6 ? C.goldHi : C.ink2, font: LATIN, alpha: k });
+    });
+    txt('洗的次数', x0 + 400, base + 84, { size: 24, color: C.ink3, alpha: eo(segB(t, 84, 84.6)) });
+  });
+  scene(t, 91, 100.6, A => {
+    feltTable(t);
+    // overhand: small packets dropped from hand to hand
+    const c = ((t * 2.2) % 1);
+    for (let i = 0; i < 18; i++) playingCard(W / 2 - 300, 640 - i * 2, 150, 210, -.04, DECK[i], 1, { back: true });
+    for (let i = 0; i < 6; i++) playingCard(W / 2 + 300, 640 - i * 2, 150, 210, .04, DECK[i], 1, { back: true });
+    playingCard(lerp(W / 2 - 300, W / 2 + 300, eio(c)), 600 - Math.sin(c * Math.PI) * 120, 150, 210, 0, DECK[0], 1, { back: true });
+    const n = Math.floor(lerp(1, 2500, eio(segB(t, 95, 98.5))));
+    txt('约', W / 2 - 240, 330, { size: 50, weight: 700, alpha: eo(segB(t, 95, 95.6)) });
+    popTxt(n.toLocaleString('en-US') + ' 次', W / 2 + 40, 340, t, 95, { size: 130, weight: 900, color: C.goldHi, font: SANS });
+  }, { cy: 600 });
+}
+function cube(x, y, s, t) {
+  const cols = ['#E8B85C', '#C2302B', '#2E6FD1', '#1FA971', '#F2EDE3', '#E07A2E'];
+  const r = seeded(Math.floor(t * 2) + 3);
+  const face = (ox, oy, ax, ay, bx, by) => { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    const px = x + ox + ax * i + bx * j, py = y + oy + ay * i + by * j;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + ax, py + ay); ctx.lineTo(px + ax + bx, py + ay + by); ctx.lineTo(px + bx, py + by); ctx.closePath();
+    ctx.fillStyle = cols[Math.floor(r() * 6)]; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 4; ctx.stroke(); } };
+  face(0, -s * 1.5, s * .87, s * .5, -s * .87, s * .5);
+  face(-s * 2.6, -s * .0, s * .87, s * .5, 0, s);
+  face(0, s * 1.5, s * .87, -s * .5, 0, s);
+}
+function sLife(t) {
+  scene(t, 100, 106.8, A => {
+    cube(640, 380, 70, t);
+    popTxt('约 4325 亿亿种', 1240, 470, t, 103.5, { size: 96, weight: 900, color: C.goldHi, font: SANS });
+    txt('一个三阶魔方的状态', 1240, 360, { size: 32, color: C.ink2, alpha: eo(segB(t, 103.5, 104)) });
+  });
+  scene(t, 106.5, 118.6, A => {
+    // padlock
+    const lx = 420, ly = 470;
+    ctx.save(); ctx.strokeStyle = '#C9A96A'; ctx.lineWidth = 16; ctx.beginPath(); ctx.arc(lx, ly - 70, 80, Math.PI, 0); ctx.stroke(); ctx.restore();
+    rrect(lx - 130, ly - 70, 260, 210, 24); ctx.fillStyle = '#C9A96A'; ctx.fill();
+    circle(lx, ly + 20, 22, '#3B2A10'); ctx.fillStyle = '#3B2A10'; ctx.fillRect(lx - 8, ly + 20, 16, 50);
+    const row = (y, n, k, val, lab) => {
+      if (k <= 0) return;
+      ctx.save(); ctx.globalAlpha *= k;
+      txt(lab, 720, y - 54, { size: 28, color: C.ink2, align: 'left' });
+      for (let i = 0; i < n; i++) { rrect(720 + i * 52, y - 30, 40, 52, 8); ctx.fillStyle = 'rgba(242,237,227,0.1)'; ctx.fill(); circle(740 + i * 52, y - 4, 8, C.ink); }
+      txt(val, 720 + n * 52 + 40, y + 10, { size: 50, weight: 900, color: n > 8 ? C.goldHi : C.ink, align: 'left', font: SANS });
+      ctx.restore();
+    };
+    row(400, 8, eo(segB(t, 110, 110.6)), '约 2088 亿种', '8 位小写字母');
+    row(600, 12, eo(segB(t, 114, 114.6)), '约 9.5 亿亿种', '12 位小写字母');
+  });
+}
+function drawFan(t, a, glowCenter) {
+  feltTable(t);
+  for (let i = 0; i < 52; i++) {
+    const u = i / 51, ang = lerp(-1.12, 1.12, u);
+    const ripple = 26 * Math.exp(-Math.pow(((t * .55) % 1.4) - u * 1.2 + .1, 2) * 30);
+    playingCard(W / 2 + Math.sin(ang) * 800, 930 - Math.cos(ang) * 440 - ripple, 128, 180, ang * .9, DECK[i], a, { glow: i === 25 ? glowCenter : 0 });
+  }
+}
+function sBack(t) {
+  scene(t, 118, 134.6, A => {
+    drawFan(t, 1, .9 * winB(t, 121.5, 134, .4, .4));
+    rectStamp(W / 2, 380, '史上首次', eo(segB(t, 124.5, 125.1)), 60, -.05);
+  }, { cy: 560 });
+}
+window.EP = {
+  NO: '07', BEATS: 168,
+  SUBS: [
+    [1, 3, '你刚洗完的这副牌，', 'The deck you just shuffled —'],
+    [3, 5, '这个顺序，人类史上可能从没出现过', 'this order has probably never existed before.'],
+    [5, 7.5, '因为 52 张牌的排法有这么多种', 'Because 52 cards can be ordered this many ways.'],
+    [7.5, 10, '比地球上所有的原子还多', 'More than all the atoms on Earth.'],
+    [10, 12, '你手里这一副，是独一无二的', 'The one in your hands is one of a kind.'],
+
+    [18.5, 21.5, '先从 3 张牌数起', 'Start with just 3 cards.'],
+    [21.5, 24.5, '3 张牌，一共 6 种顺序', '3 cards: 6 possible orders.'],
+    [24.5, 27.5, '4 张 24 种，5 张 120 种', '4 cards: 24. 5 cards: 120.'],
+    [27.5, 30.3, '每多一张，就再乘一次', 'Every extra card multiplies it again.'],
+    [30.5, 34.2, '1808 年，数学家克拉姆普给它起了符号：n!', 'In 1808, Christian Kramp named it: n!'],
+
+    [34.5, 37.5, '就算全世界 80 亿人，', 'Even if all 8 billion people,'],
+    [37.5, 40.5, '从宇宙诞生起，每人每秒洗一副', 'from the Big Bang on, each shuffled once a second,'],
+    [40.5, 43.5, '到今天，也只洗了约 3500 亿亿亿次', 'by today they\'d have shuffled about 3.5 × 10²⁷ times.'],
+    [43.5, 47, '离 52! 还差四十个数量级', 'Still 40 orders of magnitude short of 52!'],
+    [47, 50.2, '所以撞上同一个顺序，几乎不可能', 'So hitting the same order twice is all but impossible.'],
+
+    [50.5, 53.5, '但这有个前提：牌真的被洗乱了', 'But only if the deck is truly mixed.'],
+    [53.5, 56.5, '新开的一副牌，按花色和大小排好', 'A new deck comes sorted by suit and rank.'],
+    [56.5, 59.5, '只洗一两次，原来的顺序还看得出来', 'One or two shuffles, and the old order still shows.'],
+    [59.5, 63.8, '那，要洗几次才算真乱？', 'So how many shuffles does it take?'],
+
+    [64.5, 67.5, '像荷官那样，对半切开、交错着洗', 'Cut in half and riffle, like a dealer.'],
+    [67.5, 70.5, '要洗几次，52 张牌才算真正洗乱？', 'How many riffles until 52 cards are truly mixed?'],
+    [70.5, 73, '先猜一个', 'Take a guess.'],
+
+    [78.5, 81, '答案：7 次', 'The answer: seven.'],
+    [81, 84, '1992 年，两位数学家证明了这件事', 'Two mathematicians proved it in 1992.'],
+    [84, 87.5, '少于 7 次，离真正洗乱还差得远', 'Fewer than seven, and the deck is far from random.'],
+    [87.5, 91, '多于 7 次，再洗也乱不了多少', 'More than seven barely helps.'],
+    [91, 95, '而一小摞一小摞往下抽的洗法', 'And the overhand shuffle, dropping small packets,'],
+    [95, 99.6, '要洗大约 2500 次', 'takes about 2,500 shuffles.'],
+
+    [100.5, 103.5, '这叫"组合爆炸"：每多一个，就再乘一次', 'This is combinatorial explosion: each new item multiplies.'],
+    [103.5, 106.5, '一个三阶魔方，有约 4325 亿亿种状态', 'A Rubik\'s cube has about 4.3 × 10¹⁹ states.'],
+    [106.5, 110, '密码也一样：多一位，比换花样更管用', 'Passwords too: one more character beats fancy symbols.'],
+    [110, 114, '8 位小写字母，约 2000 亿种', '8 lowercase letters: about 200 billion.'],
+    [114, 117.6, '12 位，约 9.5 亿亿种', '12 letters: about 95 quadrillion.'],
+
+    [118.5, 121.5, '回到开头：你手里这副牌', 'Back to the deck in your hands.'],
+    [121.5, 124.5, '只要好好洗上 7 次——', 'Shuffle it properly, seven times —'],
+    [124.5, 127.5, '它的顺序，大概率从没在世上出现过', 'and its order has almost surely never existed.'],
+    [127.5, 133.5, '你随手做的事，也可能是第一次', 'Something you do without thinking can be a first.'],
+
+    [161, 164.4, '评论区报个数', 'Tell us in the comments.'],
+  ],
+  TOPLABELS: [[5, 12.2, '52 的阶乘 · 52!'], [18, 34, '从 3 张牌数起'], [34, 50, '这个数有多大'], [50, 64, '前提：真的洗乱'], [78, 100, '1992 · Bayer & Diaconis'], [100, 118, '组合爆炸'], [118, 134, '回到开头']],
+  NOTES: [[7.6, 12, '地球原子数为数量级估算'], [34.5, 50, '按宇宙年龄约 138 亿年估算'], [84, 91, '数据：Bayer & Diaconis 1992 表格（全变差距离）'], [95, 100, '"约 2500 次"为常见洗法的数学估算'], [103.5, 106.5, '魔方状态数：43,252,003,274,489,856,000'], [110, 118, '26 的 8 次方与 12 次方']],
+  SCENES: [sDeck, sNumber, t => titleCard(t, 12, 18.6, '第一次出现的牌', '随手一洗，为什么就是历史上第一次？', 'The Deck No One Has Ever Held', '排列'),
+    sCount, sScale, sOrder, sRiffleAnim,
+    t => predict(t, 73, ['3 次', '洗三遍就够'], ['7 次', '要洗七遍'], 1, { header: '先别划走 · 你猜要洗几次？' }),
+    sReveal7, sLife, sBack,
+    t => toolCard(t, 134, 150.6, '数组合', 'Count the combinations', [
+      ['乘不是加', '每多一个选项，可能性是乘出来的', 'Each extra choice multiplies the possibilities.'],
+      ['先加长度', '密码多一位，比换花样更管用', 'For passwords, length beats fancy symbols.'],
+      ['先数一数', '觉得"不可能是新的"，先数有多少种', 'Before saying "nothing is new", count the ways.']], '自问：这件事，到底有多少种可能？'),
+    t => goldenLine(t, 150, 158.6, '随手一洗，', '就是第一次', '——前提是，真的洗乱了', 'Shuffle well, and it\'s a first.'),
+    t => questionCards(t, 158, 164.6, '你洗牌，一般洗几次？', 'How many times do you shuffle?', [['1–2 次', 'once or twice'], ['3–5 次', 'a few'], ['7 次', 'seven'], ['不洗', 'never']]),
+    t => endNote(t, 164, ['52! 为精确值；人数、时间、原子数为数量级估算', '洗牌结论：Bayer & Diaconis（1992）', '牌面与动画为示意 · 参考文献见评论区'])],
+  cover: t => coverText(t, '你洗出的这副牌，', '史上第一次', '随手一洗，为什么就是历史上第一次？', '52 的阶乘 · 第一次出现的牌', { s1: 104 }),
+};
+</script>
+<script src="lib.js"></script>
+</body></html>

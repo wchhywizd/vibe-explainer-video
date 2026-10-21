@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>03 · 同一天生日</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:100vw;height:auto}</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script>
+// 03 · 生日悖论（试片 18 拍 = 14.4 秒）· 开场 41 人 + 2 秒二选一
+const N = 41, COLS = 7, CELL = 92, GX = 1120, GY = 250, DOT_R = 32;
+const PAIR = [3, 21], PAIR_DATE = '11/08';
+function dotPos(i) {
+  const c = i % COLS, row = Math.floor(i / COLS), n = Math.min(COLS, N - row * COLS);
+  return [GX + c * CELL + (COLS - n) * CELL / 2, GY + row * CELL];
+}
+// 选项卡
+function optCard(x, y, w, h, letter, big, sub, k, o = {}) {
+  if (k <= 0) return;
+  const sc = .93 + .07 * eob(k);
+  ctx.save();
+  ctx.globalAlpha *= Math.min(1, k * 1.5) * (o.dim === undefined ? 1 : o.dim);
+  ctx.translate(x + w / 2, y + h / 2); ctx.scale(sc, sc); ctx.translate(-w / 2, -h / 2);
+  if (o.hot > 0) glow(w / 2, h / 2 + 10, 250, '232,168,124', .3 * o.hot);
+  rrect(0, 0, w, h, 18);
+  ctx.fillStyle = o.hot > 0 ? `rgba(232,168,124,${.06 + .07 * o.hot})` : 'rgba(242,237,227,0.065)';
+  ctx.fill();
+  ctx.strokeStyle = o.hot > 0 ? `rgba(232,168,124,${.45 + .55 * o.hot})` : 'rgba(242,237,227,0.26)';
+  ctx.lineWidth = o.hot > 0 ? 2.6 : 1.4; ctx.stroke();
+  if (o.win > 0) {
+    rrect(-7, -7, w + 14, h + 14, 24);
+    ctx.strokeStyle = `rgba(242,237,227,${(.14 * o.win).toFixed(3)})`; ctx.lineWidth = 2; ctx.stroke();
+  }
+  txt(letter, 26, 46, { size: 27, weight: 700, font: MONO, color: 'rgba(242,237,227,0.5)', align: 'left' });
+  txt(big, w / 2, h * .66, { size: o.bs || 86, weight: 900, font: MONO, color: o.hot > 0 ? C.goldHi : C.ink, glow: o.hot > 0 ? 'rgba(232,184,92,0.35)' : null });
+  txt(sub, w / 2, h - 22, { size: 25, color: 'rgba(242,237,227,0.55)' });
+  ctx.restore();
+}
+function cap(t, t0, t1, l1, l2, o = {}) {
+  const k = win(t, t0, t1, .32, .28);
+  if (k <= 0) return;
+  txtIn(l1, 120, 728, k, { size: o.s1 || 36, weight: 900, font: SERIF, align: 'left', color: o.c1 || C.ink });
+  txtIn(l2, 120, 774, k, { size: 29, align: 'left', color: o.c2 || C.ink2 });
+}
+function sHook(t) {
+  scene(t, -.4, 12.8, A => {
+    // ---- 揭晓后的网格状态 ----
+    const rev = eo(seg(t, 3.4, 4.15));                  // 配对亮起
+    const cut = eo(seg(t, 5.95, 6.5));                  // 只留前 23 人
+    const back = eo(seg(t, 7.15, 7.65));                // 全部回来
+    const cutA = cut * (1 - back);
+
+    // ---- 红线：先画，压在头像下面 ----
+    if (rev > 0) {
+      const [ax, ay] = dotPos(PAIR[0]), [bx, by] = dotPos(PAIR[1]);
+      ctx.save(); ctx.globalAlpha *= rev;
+      ctx.strokeStyle = 'rgba(232,168,124,0.95)'; ctx.lineWidth = 2.8; ctx.setLineDash([10, 7]);
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- 41 个人（第 0 帧就在）----
+    for (let i = 0; i < N; i++) {
+      const [x, y] = dotPos(i);
+      const kOn = eob(seg(t, -.45 + i * .013, -.17 + i * .013));
+      if (kOn <= 0) continue;
+      const isPair = i === PAIR[0] || i === PAIR[1];
+      let am = 1;
+      if (!isPair) am *= 1 - .42 * rev;
+      if (i >= 23) am *= 1 - .86 * cutA;
+      ctx.save();
+      ctx.globalAlpha *= kOn * am;
+      if (isPair && rev > 0) glow(x, y, 92, '232,168,124', .5 * rev);
+      const warm = isPair && rev > 0;
+      circle(x, y, DOT_R, warm ? `rgba(232,168,124,${(.14 + .16 * rev).toFixed(3)})` : 'rgba(242,237,227,0.055)',
+        warm ? C.warm : 'rgba(242,237,227,0.24)', isPair ? 2.4 : 1.1);
+      // 头像：头 + 肩
+      circle(x, y - 7, 7, warm ? C.warm : 'rgba(242,237,227,0.34)');
+      ctx.beginPath(); ctx.arc(x, y + 17, 12.5, Math.PI, 0);
+      ctx.strokeStyle = warm ? C.warm : 'rgba(242,237,227,0.34)'; ctx.lineWidth = 2.3; ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- 撞上的那一对：日期标签 ----
+    if (rev > 0) {
+      const [ax, ay] = dotPos(PAIR[0]), [bx, by] = dotPos(PAIR[1]);
+      txt(PAIR_DATE, ax - 46, ay - 26, { size: 27, weight: 900, font: MONO, color: C.warm, align: 'right', alpha: rev });
+      txt(PAIR_DATE, bx - 46, by + 46, { size: 27, weight: 900, font: MONO, color: C.warm, align: 'right', alpha: rev });
+    }
+
+    // ---- 网格下方标签（23 人高亮时）----
+    txt('23 个人 · 253 种配对', 1150, 802, { size: 27, color: C.goldHi, alpha: cutA, ls: 1 });
+
+    // ---- 左侧提问 ----
+    const kQ = eo(seg(t, -.32, .08));
+    txtIn('41', 120, 168, kQ, { size: 52, weight: 900, font: MONO, color: C.goldHi, align: 'left' });
+    txtIn('个人，随机凑在一起', 200, 164, kQ, { size: 32, weight: 600, color: C.ink, align: 'left', ls: 2 });
+    txtIn('两个人同一天生日', 120, 288, eo(seg(t, .04, .46)), { size: 74, weight: 900, font: SERIF, align: 'left', ls: 2 });
+    txtIn('几率有多大？', 120, 374, eo(seg(t, .26, .7)), { size: 74, weight: 900, font: SERIF, color: C.goldHi, align: 'left', ls: 2, glow: 'rgba(232,184,92,0.24)' });
+
+    // ---- 选项 ----
+    const cS = 1.15, cE = 3.15;
+    const winP = (t > cS - .1 && t < cE + .1) ? (.55 + .45 * Math.cos((t - cS) * 5.2)) * win(t, cS - .05, cE + .1, .25, .2) : 0;
+    const kA = eob(seg(t, .52, .92)), kB = eob(seg(t, .62, 1.02));
+    optCard(120, 452, 320, 168, 'A', '5%', '几乎不可能发生', kA,
+      { win: winP, dim: 1 - .66 * rev, bs: 84 });
+    optCard(468, 452, 320, 168, 'B', rev > .3 ? '90.3%' : '90%', '几乎一定发生', kB,
+      { win: winP, hot: rev, bs: rev > .3 ? 70 : 84 });
+    if (rev > 0) rectStamp(742, 428, '答案', eo(seg(t, 3.7, 4.0)), 32, .1);
+
+    // ---- 2 秒选择窗口 ----
+    const ck = seg(t, cS, cE);
+    const cOn = win(t, cS - .05, cE + .12, .28, .2);
+    if (cOn > 0) {
+      txtIn('停一下，用手指选一个', 120, 674, cOn, { size: 27, color: C.ink2, align: 'left', ls: 1 });
+      if (t < cE) txt((cE - t).toFixed(1) + 's', 788, 674, { size: 30, weight: 700, font: MONO, color: C.goldHi, align: 'right', alpha: cOn });
+      line(120, 702, 788, 702, 'rgba(242,237,227,0.13)', 6);
+      if (ck < 1) line(120, 702, 120 + 668 * (1 - ck), 702, C.gold, 6);
+    }
+
+    // ---- 揭晓 ----
+    txtIn('多数人卡在 5%', 120, 660, win(t, 3.5, 5.7, .28, .25), { size: 24, color: C.ink3, align: 'left' });
+    cap(t, 3.55, 5.75, '41 个人，820 种配对', '每 10 间这样的教室，9 间会撞上');
+    cap(t, 5.8, 7.15, '只用 23 人', '就已经过半：50.7%');
+    cap(t, 7.2, 8.35, '再加 18 个人', '从 50% 涨到 90.3%');
+    cap(t, 8.4, 9.95, '直觉算的是 41 ÷ 365 ≈ 11%', '那只是「和你同一天」', { c1: C.ink, c2: C.goldHi });
+  }, { cx: W / 2, cy: 460, push: .02, fi: .1, fo: .42 });
+}
+window.EP = {
+  NO: '03', BEATS: 19,
+  SUBS: [
+    [0.4, 4.1, '41 个人里，两个人同一天生日的几率：5%，还是 90%？', 'Forty-one people: how likely is a shared birthday — 5%, or 90%?'],
+    [4.4, 7.4, '答案是 90.3%。41 个人，有 820 种两两配对', 'It is 90.3%. Forty-one people make 820 possible pairs.'],
+    [7.5, 12.4, '只要 23 个人就过半；你算的 11%，只算了「和你同一天」', 'Just 23 people beat even odds. That 11% only counts "same as you".'],
+  ],
+  TOPLABELS: [[1.0, 12.4, '概率 · 生日悖论']],
+  NOTES: [[1.5, 12.4, '按 365 天均匀分布：41 人 90.3%（820 对），23 人 50.7%（253 对）']],
+  SCENES: [
+    sHook,
+    t => titleCard(t, 12.3, 18.2, '同一天生日', '23 个人里，一半概率有人撞上', 'The Birthday Paradox', '概率'),
+  ],
+};
+</script>
+<script src="lib.js"></script>
+</body></html>

@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>第一个数字</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:100vw;height:auto}</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script>
+// 选题 9 · 本福特定律 ——《第一个数字》全片（168 拍 = 134.4 秒）
+const BENF = [0, 30.1, 17.6, 12.5, 9.7, 7.9, 6.7, 5.8, 5.1, 4.6];
+// a month of bill amounts, log-uniform between ¥3 and ¥3000 (illustrative)
+const BILLS = (() => { let s = 5 >>> 0; const r = () => { s += 0x6D2B79F5; let q = Math.imul(s ^ s >>> 15, 1 | s); q ^= q + Math.imul(q ^ q >>> 7, 61 | q); return ((q ^ q >>> 14) >>> 0) / 4294967296; };
+  const names = ['外卖 · 黄焖鸡', '地铁', '超市', '奶茶', '话费充值', '网购 · 收纳盒', '打车', '电费', '水果店', '理发', '早餐', '电影票', '书店', '房租分摊', '药店', '健身月卡', '咖啡', '停车费', '网购 · 运动鞋', '便利店'];
+  return Array.from({ length: 40 }, (_, i) => { const v = Math.exp(Math.log(3) + r() * (Math.log(3000) - Math.log(3))); return [names[i % names.length], Math.round(v * 100) / 100]; }); })();
+const PP = { x: 1440, y: 470, w: 400, h: 760 };
+function billScreen(w, h, t, hiK) {
+  rrect(-w / 2 + 14, -h / 2 + 14, w - 28, h - 28, 32); ctx.fillStyle = '#FBFAF7'; ctx.fill();
+  ctx.save(); rrect(-w / 2 + 14, -h / 2 + 14, w - 28, h - 28, 32); ctx.clip();
+  ctx.fillStyle = '#F1EEE7'; ctx.fillRect(-w / 2, -h / 2, w, 120);
+  txt('账单', 0, -h / 2 + 66, { size: 28, weight: 700, color: '#1F2328' });
+  txt('10 月 · 支出', 0, -h / 2 + 100, { size: 18, color: '#7A7F87' });
+  const rowH = 62, off = (t * 70) % (rowH * 20);
+  ctx.save(); ctx.beginPath(); ctx.rect(-w / 2, -h / 2 + 122, w, h - 140); ctx.clip();
+  for (let i = 0; i < 24; i++) {
+    const [name, v] = BILLS[i % BILLS.length], y = -h / 2 + 160 + i * rowH - off;
+    if (y < -h / 2 + 100 || y > h / 2) continue;
+    txt(name, -w / 2 + 34, y + 6, { size: 20, color: '#3A3F45', align: 'left' });
+    const str = '-' + v.toFixed(2);
+    // amount right-aligned; first digit highlighted
+    ctx.save(); ctx.font = `600 24px ${SANS}`; const full = ctx.measureText(str).width, firstW = ctx.measureText('-' + str[1]).width, dashW = ctx.measureText('-').width; ctx.restore();
+    const xr = w / 2 - 34, xs = xr - full;
+    if (hiK > 0) { ctx.save(); ctx.globalAlpha *= hiK; circle(xs + dashW + (firstW - dashW) / 2, y - 2, 17, 'rgba(232,184,92,0.35)', '#C9962E', 2); ctx.restore(); }
+    txt(str, xr, y + 6, { size: 24, weight: 600, color: '#1F2328', align: 'right' });
+    line(-w / 2 + 30, y + 30, w / 2 - 30, y + 30, 'rgba(0,0,0,0.06)', 1);
+  }
+  ctx.restore();
+  ctx.restore();
+}
+function bars(t, x0, base, bw, gap, k, flat, a = 1) {
+  ctx.save(); ctx.globalAlpha *= a;
+  for (let d = 1; d <= 9; d++) {
+    const target = lerp(11.1, BENF[d], k), h = target * 11 * eo(flat);
+    const x = x0 + (d - 1) * (bw + gap);
+    rrect(x, base - h, bw, h, 6); ctx.fillStyle = d === 1 ? '#E8B85C' : (d === 9 ? '#F08A72' : 'rgba(242,237,227,0.78)'); ctx.fill();
+    txt(String(d), x + bw / 2, base + 40, { size: 30, weight: 700, color: d === 1 ? C.goldHi : C.ink2, font: MONO });
+    if (k > .95 && (d === 1 || d === 9)) txt(BENF[d].toFixed(1) + '%', x + bw / 2, base - h - 16, { size: 30, weight: 900, color: d === 1 ? C.goldHi : '#F08A72' });
+  }
+  // the naive expectation line: 11.1% each
+  ctx.save(); ctx.setLineDash([10, 8]); ctx.strokeStyle = 'rgba(242,237,227,0.45)'; ctx.lineWidth = 2;
+  const yb = base - 11.1 * 11 * eo(flat); ctx.beginPath(); ctx.moveTo(x0 - 20, yb); ctx.lineTo(x0 + 9 * (bw + gap), yb); ctx.stroke(); ctx.restore();
+  txt('以为：各占一成', x0 + 9 * (bw + gap) + 10, yb + 8, { size: 22, color: C.ink2, align: 'left', alpha: eo(flat) });
+  ctx.restore();
+}
+function sBills(t) {
+  const A = winB(t, -1, 12.6, .01, .6);
+  if (A <= 0) return;
+  ctx.save(); ctx.globalAlpha = A;
+  const zoom = lerp(1.2, 1.0, eio(segB(t, 0, 1.4))) * (1 + .03 * segB(t, 1.4, 12));
+  ctx.save(); ctx.translate(PP.x, PP.y); ctx.scale(zoom, zoom); ctx.translate(-PP.x, -PP.y);
+  glow(PP.x, PP.y, 620, '255,210,160', .14);
+  ctx.translate(PP.x, PP.y); ctx.rotate(.025 * Math.sin(t * 1.2));
+  ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 24;
+  rrect(-PP.w / 2, -PP.h / 2, PP.w, PP.h, 46); ctx.fillStyle = '#15161C'; ctx.fill(); ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.stroke();
+  billScreen(PP.w, PP.h, t, eo(segB(t, 1, 2)));
+  ctx.restore();
+  // left: the histogram — flat guess at beat 3, the real shape lands at beat 5
+  const flat = segB(t, 3, 4), k = eio(segB(t, 5, 6.2));
+  if (flat > 0) bars(t, 170, 720, 76, 26, k, flat, winB(t, 2.9, 9.4, .3, .4));
+  // beat 9.5: the auditor's ledger — too-even numbers get flagged
+  const l = winB(t, 9.3, 12.4, .4, .5);
+  if (l > 0) {
+    ctx.save(); ctx.globalAlpha *= l;
+    ctx.fillStyle = 'rgba(6,6,26,0.86)'; ctx.fillRect(140, 200, 900, 640);
+    paperCard(220, 250, 720, 520, -.02, 1, (w, h) => {
+      pText('报销明细 · 第三季度', 40, 64, 30, { font: SERIF, weight: 900 });
+      line(40, 86, w - 40, 86, C.pInk3, 1.5);
+      const fake = ['4,860.00', '5,120.00', '7,390.00', '6,250.00', '8,470.00', '5,930.00', '9,140.00', '6,680.00'];
+      fake.forEach((v, i) => { pText(`第 ${i + 1} 笔`, 60, 140 + i * 44, 22, { font: SANS, color: C.pInk2 }); pText('¥' + v, w - 60, 140 + i * 44, 26, { align: 'right', font: MONO, weight: 700 }); });
+    });
+    rectStamp(800, 330, '可疑', eo(segB(t, 10.6, 11.2)), 50, .1);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ---------------- full episode scenes ----------------
+function phoneBills(t, x, y, s, hiK) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  glow(0, 0, 620, '255,210,160', .14);
+  ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 24;
+  rrect(-PP.w / 2, -PP.h / 2, PP.w, PP.h, 46); ctx.fillStyle = '#15161C'; ctx.fill(); ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.stroke();
+  billScreen(PP.w, PP.h, t, hiK);
+  ctx.restore();
+}
+// a worn book of logarithm tables, seen from the fore-edge: early pages grimy
+function logBook(x, y, w, h, k, t) {
+  if (k <= 0) return;
+  ctx.save(); ctx.globalAlpha *= k;
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
+  rrect(x - 16, y - 16, w + 32, h + 32, 10); ctx.fillStyle = '#4A2E1C'; ctx.fill(); ctx.shadowColor = 'transparent';
+  for (let i = 0; i < 90; i++) {
+    const u = i / 89, yy = y + u * h, grime = Math.pow(1 - u, 1.6);
+    const r = Math.round(lerp(236, 96, grime)), g = Math.round(lerp(226, 74, grime)), b = Math.round(lerp(204, 48, grime));
+    ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(x, yy, w, h / 90 + .6);
+  }
+  // section tabs 1…9 down the edge
+  for (let d = 1; d <= 9; d++) {
+    const yy = y + Math.log10(d) * h;
+    line(x - 6, yy, x + w + 6, yy, 'rgba(60,40,20,0.6)', 2);
+    txt(String(d), x - 40, yy + Math.min(46, Math.log10((d + 1) / d) * h / 2) + 12, { size: 34, weight: 700, font: MONO, color: d === 1 ? C.goldHi : C.ink2 });
+  }
+  ctx.restore();
+}
+function sNewcomb(t) {
+  scene(t, 18, 34.6, A => {
+    logBook(260, 200, 300, 620, eo(segB(t, 18.2, 19)), t);
+    const tk = winB(t, 19.5, 23.5, .3, .3);
+    txtIn('前面几页，翻得最脏', 410, 880, tk, { size: 34, color: C.ink2 });
+    docCard(760, 140, 520, 680, -.015, segB(t, 21, 22), { top: ['AMERICAN JOURNAL OF MATHEMATICS', '1881'], title: ['Note on the Frequency', 'of Use of the Different', 'Digits in Natural', 'Numbers'], titleSize: 30, author: 'SIMON NEWCOMB', seal: '首位', sealK: eo(segB(t, 23, 23.6)) }, t);
+    docCard(1330, 180, 500, 660, .02, segB(t, 26.5, 27.5), { top: ['PROC. AMER. PHILOSOPHICAL SOC.', '1938'], title: ['The Law of', 'Anomalous Numbers'], titleSize: 34, author: 'FRANK BENFORD', big: '20,229', hlK: eo(segB(t, 30, 31)) }, t);
+    const ck = eo(segB(t, 30, 30.8));
+    if (ck > 0) txtIn('20 类数据 · 20229 个数', 1580, 900, ck, { size: 34, weight: 700, color: C.goldHi });
+  });
+}
+function sCurve(t) {
+  scene(t, 34, 50.6, A => {
+    const flat = 1, k = eio(segB(t, 35, 36.4));
+    bars(t, 180, 760, 96, 28, k, flat, 1);
+    // what kinds of lists
+    const L = ['河流面积', '城市人口', '物理常数', '分子量', '门牌号'];
+    L.forEach((s, i) => { const ik = eo(segB(t, 37.5 + i * .5, 38.1 + i * .5)); if (ik <= 0) return; rrect(1600, 200 + i * 96, 260, 70, 12); ctx.fillStyle = `rgba(242,237,227,${.08 * ik})`; ctx.fill(); txtIn(s, 1730, 248 + i * 96, ik, { size: 32, weight: 700 }); });
+    const fk = eo(segB(t, 44, 44.8));
+    if (fk > 0) {
+      ctx.save(); ctx.globalAlpha *= fk; rrect(500, 160, 820, 140, 18); ctx.fillStyle = 'rgba(6,6,26,0.8)'; ctx.fill(); ctx.restore();
+      txtIn('P(d) = log₁₀(1 + 1/d)', 910, 255, fk, { size: 64, weight: 700, font: SERIF, color: C.goldHi });
+    }
+  });
+}
+function sGrowth(t) {
+  scene(t, 50, 64.6, A => {
+    // a log ruler: 1 → 10, each digit gets the width it deserves
+    const x0 = 220, x1 = 1700, y = 520, X = v => x0 + (x1 - x0) * Math.log10(v / 1000);
+    const k = eio(segB(t, 50.5, 52));
+    ctx.save(); ctx.globalAlpha *= k;
+    for (let d = 1; d <= 9; d++) {
+      const a = X(d * 1000), b = X((d + 1) * 1000);
+      rrect(a + 3, y - 50, b - a - 6, 100, 10); ctx.fillStyle = d === 1 ? 'rgba(232,184,92,0.75)' : (d === 9 ? 'rgba(240,138,114,0.65)' : 'rgba(242,237,227,0.16)'); ctx.fill();
+      txt(String(d), (a + b) / 2, y + 16, { size: 40, weight: 900, font: MONO, color: d === 1 ? '#2A1C08' : C.ink });
+      if ([1, 2, 5].includes(d)) txt(fmtInt(d * 1000), a, y + 100, { size: 26, color: C.ink2 });
+    }
+    txt('10,000', x1, y + 100, { size: 26, color: C.ink2 });
+    ctx.restore();
+    // a fund growing 10% a year walks along the ruler
+    const yrs = 24.1 * eio(segB(t, 53.5, 61)), v = 1000 * Math.pow(1.1, yrs);
+    if (yrs > 0) {
+      const px = X(Math.min(v, 9999));
+      ctx.save(); ctx.translate(px, y - 110); circle(0, 0, 22, '#E8B85C'); ctx.restore();
+      txt('每年 +10%', px, y - 160, { size: 30, weight: 700, color: C.goldHi });
+      txt(`第 ${Math.floor(yrs)} 年 · ${fmtInt(v)}`, W / 2, 300, { size: 44, weight: 700, font: SANS });
+    }
+    const a1 = eo(segB(t, 56.5, 57.2)), a9 = eo(segB(t, 60, 60.7));
+    if (a1 > 0) { line(X(1000), y + 150, X(2000), y + 150, C.goldHi, 4); txtIn('1 字头：要走 7 年多', (X(1000) + X(2000)) / 2, y + 200, a1, { size: 36, weight: 900, color: C.goldHi }); }
+    if (a9 > 0) { line(X(9000), y + 150, X(10000), y + 150, '#F08A72', 4); txtIn('9 字头：约 1 年', X(9500) - 40, y + 200, a9, { size: 36, weight: 900, color: '#F08A72' }); }
+  });
+}
+const SLIP_A = ['1,280.00', '312.50', '1,045.60', '2,190.00', '168.40', '1,730.00', '3,620.00', '485.20', '1,120.00', '256.80'];
+const SLIP_B = ['5,860.00', '7,240.00', '6,480.00', '8,350.00', '4,970.00', '9,120.00', '6,630.00', '7,580.00', '5,410.00', '8,890.00'];
+function slip(x, y, rot, label, rows, k, o = {}) {
+  if (k <= 0) return;
+  paperCard(x, y + (1 - eob(k)) * 400, 520, 640, rot, 1, (w, h) => {
+    pText('报销单 ' + label, 40, 64, 34, { font: SERIF, weight: 900 });
+    line(40, 88, w - 40, 88, C.pInk3, 1.5);
+    rows.forEach((v, i) => {
+      const yy = 140 + i * 46;
+      pText(`第 ${i + 1} 笔`, 50, yy, 22, { font: SANS, color: C.pInk2 });
+      if (o.hi) { ctx.fillStyle = 'rgba(232,184,92,0.8)'; const fw = 17; ctx.fillRect(w - 60 - measure('¥' + v, 26, 700, MONO) + measure('¥', 26, 700, MONO) - 2, yy - 24, fw * o.hi, 32); }
+      pText('¥' + v, w - 60, yy, 26, { align: 'right', font: MONO, weight: 700 });
+    });
+    pText('虚构示例', w - 30, h - 18, 15, { font: SANS, align: 'right', color: C.pInk2 });
+  });
+}
+function sSlips(t) {
+  scene(t, 64, 73.4, A => {
+    slip(330, 160, -.02, 'A', SLIP_A, segB(t, 64.5, 65.6));
+    slip(1070, 160, .02, 'B', SLIP_B, segB(t, 65.3, 66.4));
+  });
+}
+function sReveal(t) {
+  scene(t, 79.2, 86.6, A => {
+    slip(330, 160, -.02, 'A', SLIP_A, 1, { hi: eo(segB(t, 79.5, 80.3)) });
+    slip(1070, 160, .02, 'B', SLIP_B, 1, { hi: eo(segB(t, 79.5, 80.3)) });
+    rectStamp(1500, 260, '可疑', eo(segB(t, 80, 80.6)), 54, .1);
+    txtIn('没有一个 1 开头', 1330, 136, eo(segB(t, 81, 81.6)), { size: 40, weight: 900, color: C.redHi });
+  });
+  scene(t, 86, 100.6, A => {
+    // Arizona, 1993: a fan of checks
+    for (let i = 0; i < 23; i++) {
+      const k = eo(segB(t, 87.5 + i * .08, 88.2 + i * .08)); if (k <= 0) continue;
+      const ang = lerp(-.5, .5, i / 22), x = 640 + Math.sin(ang) * 360, y = 760 - Math.cos(ang) * 300;
+      ctx.save(); ctx.globalAlpha *= k; ctx.translate(x, y); ctx.rotate(ang * .8);
+      rrect(-150, -60, 300, 120, 8); ctx.fillStyle = '#EFE9DA'; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.stroke();
+      ctx.fillStyle = '#B7C9B0'; ctx.fillRect(-150, -60, 300, 20);
+      txt('支票 · 示意', -130, 10, { size: 16, color: '#555', align: 'left' });
+      txt('$', 60, 34, { size: 26, color: '#2A1C08', align: 'right' });
+      ctx.restore();
+    }
+    docCard(1180, 170, 600, 640, .015, segB(t, 89.5, 90.5), { top: ['STATE OF ARIZONA  v.  WAYNE JAMES NELSON', '1993'], title: ['23 张支票', '约 200 万美元'], titleSize: 44, author: 'NIGRINI · JOURNAL OF ACCOUNTANCY · 1999', seal: '首位', sealK: eo(segB(t, 96, 96.6)) }, t);
+    const dk = eo(segB(t, 93, 93.8));
+    if (dk > 0) { ctx.save(); ctx.globalAlpha *= dk; rrect(380, 330, 520, 150, 20); ctx.fillStyle = 'rgba(6,6,26,0.85)'; ctx.fill(); ctx.restore(); txtIn('7 · 8 · 9 开头', 640, 410, dk, { size: 64, weight: 900, color: '#F08A72' }); txtIn('都在 10 万美元以下', 640, 460, dk, { size: 30, color: C.ink2 }); }
+  });
+}
+function sLimits(t) {
+  scene(t, 100, 118.6, A => {
+    const items = [['身高', '都挤在 1 米多', 101], ['考试分数', '被满分卡住', 102.2], ['手机号', '号码是分配的', 103.4]];
+    items.forEach(([a, b, bb], i) => {
+      const k = eo(segB(t, bb, bb + .6)); if (k <= 0) return;
+      const x = 380 + i * 580;
+      ctx.save(); ctx.globalAlpha *= k;
+      rrect(x - 230, 230, 460, 300, 24); ctx.fillStyle = 'rgba(242,237,227,0.07)'; ctx.fill(); ctx.strokeStyle = 'rgba(242,237,227,0.2)'; ctx.lineWidth = 2; ctx.stroke();
+      txt(a, x, 350, { size: 58, weight: 900, font: SERIF });
+      txt(b, x, 430, { size: 32, color: C.ink2 });
+      ctx.restore();
+      const xk = eo(segB(t, bb + .5, bb + 1));
+      if (xk > 0) txtIn('不适用', x, 500, xk, { size: 30, weight: 900, color: C.redHi });
+    });
+    const nk = eo(segB(t, 109.5, 110.3));
+    if (nk > 0) {
+      popTxt('对不上 ≠ 造假', W / 2, 700, t, 109.6, { size: 92, weight: 900, color: C.goldHi, font: SERIF });
+      txtIn('只是一个"值得再查一查"的信号', W / 2, 790, eo(segB(t, 112.5, 113.2)), { size: 40, color: C.ink });
+    }
+  });
+}
+function sBack(t) {
+  scene(t, 118, 134.6, A => {
+    phoneBills(t, 1300, 480, 1, eo(segB(t, 119, 120)));
+    const k = eo(segB(t, 121.5, 122.2));
+    if (k > 0) { popTxt('1', 480, 560, t, 121.6, { size: 300, weight: 900, color: C.goldHi, font: SERIF, glow: 'rgba(232,184,92,0.4)', glowBlur: 40 }); txtIn('最常见的第一个数字', 480, 700, k, { size: 40, color: C.ink2 }); }
+  }, { cx: 1300, cy: 480 });
+}
+window.EP = {
+  NO: '10', BEATS: 168,
+  SUBS: [
+    [1, 3, '翻开账单，看每笔的第一个数字', 'Open your bills. Look at each first digit.'],
+    [3, 5, '你可能以为，1 到 9 各占一成', 'You\'d think 1 to 9 each get a tenth.'],
+    [5, 7.5, '实际上，1 开头的往往占三成', 'In fact, about 30% often start with 1.'],
+    [7.5, 9.5, '9 开头的，还不到 5%', 'Fewer than 5% start with 9.'],
+    [9.5, 12.1, '查账的人，就靠它找出假账', 'Auditors use this to spot made-up numbers.'],
+    [18.5, 21, '1881 年，天文学家纽康翻着对数表', '1881: astronomer Simon Newcomb, leafing through log tables.'],
+    [21, 24.5, '他发现前面几页，总是翻得最脏', 'The early pages were always the most worn.'],
+    [24.5, 27, '1 开头的数，被查得最多', 'Numbers starting with 1 got looked up most.'],
+    [27, 30.5, '1938 年，物理学家本福特去数了一遍', '1938: physicist Frank Benford counted.'],
+    [30.5, 34.2, '20 类数据，20229 个数', '20 kinds of data, 20,229 numbers.'],
+    [34.5, 37.5, '结果几乎一样：1 开头的约占 30%', 'Same result: about 30% start with 1.'],
+    [37.5, 41, '河流面积、城市人口、物理常数、门牌号……', 'River areas, populations, constants, street numbers…'],
+    [41, 44, '9 开头的，只有 4.6%', 'Only 4.6% start with 9.'],
+    [44, 47.5, '这条规律，可以写成一个公式', 'It even fits a formula.'],
+    [47.5, 50.2, '为什么会这样？', 'Why?'],
+    [50.5, 53.5, '想象一笔钱，每年涨 10%', 'Picture money growing 10% a year.'],
+    [53.5, 56.5, '从 1000 涨到 2000，要翻一倍', '1,000 to 2,000 means doubling.'],
+    [56.5, 60, '它在 1 字头上，要待 7 年多', 'It stays in the 1s for over seven years.'],
+    [60, 63.8, '从 9000 到 10000，只要 1 年多一点', '9,000 to 10,000 takes barely a year.'],
+    [64.5, 67.5, '两张报销单，一张是真实记录', 'Two expense slips. One is real.'],
+    [67.5, 70.5, '另一张，是有人随手编的', 'The other was made up.'],
+    [70.5, 73, '哪一张更像编的？', 'Which looks made up?'],
+    [78.5, 81, '答案：B 更可疑', 'Answer: B is more suspicious.'],
+    [81, 83.5, '10 笔里，没有一个 1 开头', 'Ten amounts, not one starts with 1.'],
+    [83.5, 86.5, '人编数字，总想"看起来随机"', 'People faking numbers try to look random.'],
+    [86.5, 90, '1993 年，美国亚利桑那州一桩案子', '1993, a case in Arizona.'],
+    [90, 93.5, '一名州政府职员开了 23 张支票，约 200 万美元', 'A state employee wrote 23 checks, about $2 million.'],
+    [93.5, 96.5, '金额大多以 7、8、9 开头', 'Most began with 7, 8 or 9.'],
+    [96.5, 99.6, '而且都没超过 10 万美元', 'And all stayed under $100,000.'],
+    [100.5, 104.5, '但它不是万能的', 'But it isn\'t magic.'],
+    [104.5, 109.3, '身高、分数、手机号，都不符合', 'Heights, scores, phone numbers don\'t follow it.'],
+    [109.5, 112.5, '数据对不上，也不等于造假', 'A mismatch is not proof of fraud.'],
+    [112.5, 117.6, '它只是一个"值得再查一查"的信号', 'It is a signal to look closer.'],
+    [118.5, 121.5, '回到你的账单', 'Back to your bills.'],
+    [121.5, 125, '跨度越大的数字，1 开头的越多', 'The wider the range, the more 1s.'],
+    [125, 129, '这不是巧合，是增长留下的指纹', 'Not a coincidence: a fingerprint of growth.'],
+    [129, 133.5, '下次翻账单，先看第一个数字', 'Next time, check the first digit.'],
+    [161, 164.4, '评论区说说', 'Tell us in the comments.'],
+  ],
+  TOPLABELS: [[18, 34, '1881 → 1938'], [34, 50, '本福特定律'], [50, 64, '为什么是 1'], [64, 78, '考考你'], [78, 100, '1993 · 亚利桑那州'], [100, 118, '它的边界'], [118, 134, '回到开头']],
+  NOTES: [[1, 9.3, '账单为示意 · 柱形为本福特定律理论值'], [9.5, 12.2, '报销明细为虚构示例'], [18.2, 24.5, '对数表磨损为示意'], [50.5, 64, '每年 +10%：1000→2000 约 7.3 年；9000→10000 约 1.1 年'], [64.5, 86.5, '报销单为虚构示例；10 笔太少，真查账要看大量数据'], [86.5, 100, '案情据 Nigrini 1999（Journal of Accountancy）· 支票图为示意']],
+  SCENES: [sBills, t => titleCard(t, 12, 18.6, '第一个数字', '为什么账单里，1 开头的最多？', 'The First Digit', '首位'),
+    sNewcomb, sCurve, sGrowth, sSlips,
+    t => predict(t, 73, ['A 像编的', '数字乱'], ['B 像编的', '数字匀'], 1, { header: '先别划走 · 哪张更像编的？' }),
+    sReveal, sLimits, sBack,
+    t => toolCard(t, 134, 150.6, '看第一位', 'Check the first digit', [
+      ['数一数', '把第一位数字数一遍：1 开头约占三成', 'Count first digits: about 30% should be 1s.'],
+      ['看范围', '跨好几个数量级的数据才适用', 'Only for data spanning several orders of magnitude.'],
+      ['只当线索', '对不上，只说明值得再查一查', 'A mismatch means look closer, not guilty.']], '自问：这些数字，跨度够大吗？'),
+    t => goldenLine(t, 150, 158.6, '编出来的数字，', '往往太整齐', '——真实世界，偏爱 1', 'Made-up numbers are too tidy.'),
+    t => questionCards(t, 158, 164.6, '你最近一笔支出，第一个数字是？', 'Your latest expense starts with?', [['1', 'one'], ['2–3', 'two–three'], ['4–6', 'four–six'], ['7–9', 'seven–nine']]),
+    t => endNote(t, 164, ['Newcomb 1881；Benford 1938（20 类数据，20229 个数）', '亚利桑那州诉 Nelson 案（1993），见 Nigrini 1999', '账单、报销单、支票为虚构示例'])],
+  cover: t => coverText(t, '你的账单里，', '1 开头的最多', '随手翻一翻，第一个数字竟然不平均', '数学 · 本福特定律', { s1: 120, scrimW: 1000 }),
+};
+
+</script>
+<script src="lib.js"></script>
+</body></html>

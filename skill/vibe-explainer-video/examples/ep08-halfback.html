@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>回不去的本</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:100vw;height:auto}</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script>
+// 选题 6 · 涨 50% 再跌 50% ——《回不去的本》全片（168 拍 = 134.4 秒）
+// 国内行情惯例：红色 = 涨，绿色 = 跌
+const UP = '#E5484D', DOWN = '#1FA971';
+const FP = { x: 1400, y: 470, w: 400, h: 760 };
+function fundValue(t) {          // ¥10,000 → 15,000 (beat 1–2.4) → 7,500 (beat 3–4.4)
+  const u1 = eio(segB(t, 1.2, 2.4)), u2 = eio(segB(t, 3.1, 4.4));
+  return 10000 * (1 + .5 * u1) * (1 - .5 * u2);
+}
+function fundScreen(w, h, t) {
+  rrect(-w / 2 + 14, -h / 2 + 14, w - 28, h - 28, 32); ctx.fillStyle = '#FBFAF7'; ctx.fill();
+  ctx.save(); rrect(-w / 2 + 14, -h / 2 + 14, w - 28, h - 28, 32); ctx.clip();
+  txt('我的持有', 0, -h / 2 + 70, { size: 26, weight: 700, color: '#1F2328' });
+  txt('稳健精选混合 A', 0, -h / 2 + 104, { size: 18, color: '#7A7F87' });
+  const v = fundValue(t), pct = v / 10000 - 1, col = pct >= 0 ? UP : DOWN;
+  txt('持有金额（元）', -w / 2 + 40, -h / 2 + 168, { size: 18, color: '#7A7F87', align: 'left' });
+  txt(fmtInt(v), -w / 2 + 38, -h / 2 + 236, { size: 66, weight: 900, color: '#1F2328', align: 'left', font: SANS });
+  txt('累计收益', -w / 2 + 40, -h / 2 + 276, { size: 18, color: '#7A7F87', align: 'left' });
+  txt((pct >= 0 ? '+' : '') + fmtInt(v - 10000), -w / 2 + 40, -h / 2 + 314, { size: 32, weight: 700, color: col, align: 'left' });
+  txt((pct >= 0 ? '+' : '') + (pct * 100).toFixed(2) + '%', w / 2 - 40, -h / 2 + 314, { size: 32, weight: 700, color: col, align: 'right' });
+  // curve: day 0 → day 1 → day 2
+  const x0 = -w / 2 + 40, x1 = w / 2 - 40, yb = h / 2 - 90, yt = -h / 2 + 370;
+  const yv = val => lerp(yb, yt, (val - 6000) / 10000);
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i++) { const y = lerp(yb, yt, i / 3); ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); }
+  ctx.save(); ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.moveTo(x0, yv(10000)); ctx.lineTo(x1, yv(10000)); ctx.stroke(); ctx.restore();
+  txt('本金', x1, yv(10000) - 8, { size: 15, color: '#7A7F87', align: 'right' });
+  const u1 = eio(segB(t, 1.2, 2.4)), u2 = eio(segB(t, 3.1, 4.4));
+  const pts = [[x0, yv(10000)]];
+  pts.push([lerp(x0, (x0 + x1) / 2, u1), yv(10000 * (1 + .5 * u1))]);
+  if (u2 > 0) pts.push([lerp((x0 + x1) / 2, x1, u2), yv(15000 * (1 - .5 * u2))]);
+  ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = UP; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(pts[1][0], pts[1][1]); ctx.stroke();
+  if (pts[2]) { ctx.strokeStyle = DOWN; ctx.beginPath(); ctx.moveTo(pts[1][0], pts[1][1]); ctx.lineTo(pts[2][0], pts[2][1]); ctx.stroke(); }
+  const last = pts[pts.length - 1]; circle(last[0], last[1], 9, pts[2] ? DOWN : UP);
+  txt('第 1 天', (x0 + x1) / 4 + x0 / 2 + 20, yb + 34, { size: 16, color: '#7A7F87' });
+  txt('第 2 天', (x0 + x1) / 2 + (x1 - x0) / 4, yb + 34, { size: 16, color: '#7A7F87' });
+  ctx.restore();
+}
+function sFund(t) {
+  const A = winB(t, -1, 12.6, .01, .6);
+  if (A <= 0) return;
+  ctx.save(); ctx.globalAlpha = A;
+  const zoom = lerp(1.25, 1.0, eio(segB(t, 0, 1.4))) * (1 + .03 * segB(t, 1.4, 12));
+  ctx.translate(FP.x, FP.y); ctx.scale(zoom, zoom); ctx.translate(-FP.x, -FP.y);
+  glow(FP.x, FP.y, 600, '255,210,160', .14);
+  // phone tilts slightly in the hand, alive from frame 0
+  ctx.save(); ctx.translate(FP.x, FP.y); ctx.rotate(.03 * Math.sin(t * 1.3));
+  ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 24;
+  rrect(-FP.w / 2, -FP.h / 2, FP.w, FP.h, 46); ctx.fillStyle = '#15161C'; ctx.fill(); ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.stroke();
+  fundScreen(FP.w, FP.h, t);
+  ctx.restore();
+  ctx.restore();
+  // left panel: the arithmetic
+  const p = eo(segB(t, 1.2, 1.8)), q = eo(segB(t, 3.1, 3.7)), r = eo(segB(t, 7, 7.6));
+  const clearK = 1 - eio(segB(t, 9.2, 9.7));
+  ctx.save(); ctx.globalAlpha = A * clearK;
+  txtIn('第 1 天', 300, 330, p, { size: 32, color: C.ink2, align: 'left' });
+  txtIn('+50%', 470, 336, p, { size: 72, weight: 900, color: '#FF7A7E', align: 'left', font: SANS });
+  txtIn('第 2 天', 300, 450, q, { size: 32, color: C.ink2, align: 'left' });
+  txtIn('−50%', 470, 456, q, { size: 72, weight: 900, color: '#4FD39A', align: 'left', font: SANS });
+  // beat 5–7: "回本了？" hangs; beat 7 lands the answer
+  const ask = winB(t, 5, 7.05, .3, .15);
+  txtIn('回本了？', 300, 600, ask, { size: 80, weight: 900, color: C.ink, align: 'left', font: SERIF });
+  if (r > 0) {
+    line(300, 520, 760, 520, 'rgba(242,237,227,0.25)', 2);
+    const pop = t > B(7) ? 1 + .06 * Math.exp(-(t - B(7)) * 7) : 1;
+    ctx.save(); ctx.translate(300, 640); ctx.scale(pop, pop);
+    txtIn('−25%', 0, 0, r, { size: 150, weight: 900, color: '#4FD39A', align: 'left', font: SANS, glow: 'rgba(79,211,154,0.4)', glowBlur: 30 });
+    ctx.restore();
+    txtIn('1 万变成 7500', 304, 720, r, { size: 38, weight: 500, color: C.ink2, align: 'left' });
+  }
+  ctx.restore();
+  // beat 9.5: halve-then-double ladder
+  const l = winB(t, 9.5, 12.3, .4, .5);
+  if (l > 0) {
+    ctx.save(); ctx.globalAlpha = A * l;
+    const bx = 330, base = 740;
+    const h1 = 300, h2 = 150 + 150 * eio(segB(t, 10.3, 11.5));
+    rrect(bx, base - h1, 110, h1, 8); ctx.fillStyle = 'rgba(242,237,227,0.85)'; ctx.fill();
+    rrect(bx + 220, base - h2, 110, h2, 8); ctx.fillStyle = '#4FD39A'; ctx.fill();
+    ctx.fillStyle = 'rgba(255,122,126,0.35)'; ctx.fillRect(bx + 220, base - 300, 110, 300 - h2);
+    txt('10,000', bx + 55, base + 40, { size: 26, weight: 700 });
+    txt(fmtInt(5000 * (h2 / 150)), bx + 275, base + 40, { size: 26, weight: 700, color: '#4FD39A' });
+    txt('跌 50%', bx + 165, base - 160, { size: 30, color: '#4FD39A' });
+    txtIn('要涨 100%', bx + 275, base - h2 - 24, eo(segB(t, 10.3, 11)), { size: 34, weight: 900, color: '#FF7A7E' });
+    ctx.restore();
+  }
+}
+
+// ---------------- full episode scenes ----------------
+const UPL = '#FF7A7E', DNL = '#4FD39A';
+function money(v) { return fmtInt(v); }
+function barStack(x, base, w, total, part, scale, colBase, colPart, k, label, partLabel, partAbove) {
+  const hT = total * scale * k, hP = part * scale * k;
+  rrect(x, base - hT, w, hT, 8); ctx.fillStyle = colBase; ctx.fill();
+  if (hP > 0) { rrect(x, partAbove ? base - hT - hP : base - hP, w, hP, 8); ctx.fillStyle = colPart; ctx.fill(); }
+  txt(label, x + w / 2, base + 44, { size: 30, weight: 700, alpha: k });
+  if (partLabel) txt(partLabel, x + w / 2, (partAbove ? base - hT - hP : base - hT) - 18, { size: 34, weight: 900, color: colPart, alpha: k });
+}
+function sBase(t) {
+  scene(t, 18, 34.6, A => {
+    const base = 760, sc = .028;
+    const k1 = eio(segB(t, 18.5, 19.8)), k2 = eo(segB(t, 21.5, 22.4)), k3 = eio(segB(t, 24.5, 25.6));
+    txt('第 1 天：涨 50%', 560, 230, { size: 36, weight: 700, color: UPL, alpha: k1 });
+    barStack(460, base, 200, 10000, 5000 * k2, sc, 'rgba(242,237,227,0.8)', UPL, k1, '10,000', k2 > .5 ? '+5,000' : '', true);
+    txt('第 2 天：跌 50%', 1340, 230, { size: 36, weight: 700, color: DNL, alpha: k3 });
+    if (k3 > 0) {
+      const hT = 15000 * sc, hP = 7500 * sc * eo(segB(t, 25.6, 26.6));
+      rrect(1240, base - hT * k3, 200, hT * k3, 8); ctx.fillStyle = 'rgba(242,237,227,0.8)'; ctx.fill();
+      ctx.fillStyle = 'rgba(79,211,154,0.85)'; rrect(1240, base - hT * k3, 200, hP, 8); ctx.fill();
+      txt('15,000', 1340, base + 44, { size: 30, weight: 700 });
+      if (hP > 10) txt('−7,500', 1340, base - hT - 18, { size: 34, weight: 900, color: DNL });
+    }
+    const ck = eo(segB(t, 27.5, 28.2));
+    if (ck > 0) { txtIn('涨得少', 560, 860, ck, { size: 44, weight: 900, color: UPL }); txtIn('跌得多', 1340, 860, ck, { size: 44, weight: 900, color: DNL }); }
+    const sk = eo(segB(t, 30.5, 31.2));
+    if (sk > 0) { ctx.fillStyle = `rgba(6,6,26,${.85 * sk})`; ctx.fillRect(0, 150, W, 700); txtIn('先跌后涨：10,000 → 5,000 → 7,500', W / 2, 520, sk, { size: 60, weight: 900 }); txtIn('顺序反过来，结果一样', W / 2, 610, sk, { size: 36, color: C.ink2 }); }
+  });
+}
+function sCurve(t) {
+  scene(t, 34, 50.6, A => {
+    const x0 = 360, x1 = 1560, y0 = 780, y1 = 200;
+    const X = d => lerp(x0, x1, d / 90), Y = g => lerp(y0, y1, g / 900);
+    const ak = eio(segB(t, 34, 35.2));
+    line(x0, y0, x0 + (x1 - x0) * ak, y0, 'rgba(242,237,227,0.5)', 2); line(x0, y0, x0, y0 - (y0 - y1) * ak, 'rgba(242,237,227,0.5)', 2);
+    for (let d = 0; d <= 90; d += 10) txt(d + '%', X(d), y0 + 40, { size: 24, color: C.ink3, alpha: ak });
+    for (let g = 0; g <= 900; g += 300) { txt(g + '%', x0 - 20, Y(g) + 8, { size: 24, color: C.ink3, align: 'right', alpha: ak }); if (g) line(x0, Y(g), x1, Y(g), 'rgba(242,237,227,0.07)', 1); }
+    txt('跌了多少', (x0 + x1) / 2, y0 + 86, { size: 28, color: C.ink2, alpha: ak });
+    txt('要涨多少才回本', x0, y1 - 40, { size: 28, color: C.ink2, align: 'left', alpha: ak });
+    const ck = eio(segB(t, 35, 47.5)), dmax = 90 * ck;
+    ctx.save(); ctx.strokeStyle = '#E8B85C'; ctx.lineWidth = 5; ctx.beginPath();
+    for (let d = 0; d <= dmax; d += .5) { const g = (1 / (1 - d / 100) - 1) * 100; const px = X(d), py = Math.max(y1 - 40, Y(g)); d ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.stroke(); ctx.restore();
+    [[37.5, 10, 11.1, '跌 10% → 涨 11%'], [40.5, 50, 100, '跌 50% → 涨 100%'], [43.5, 80, 400, '跌 80% → 涨 400%']].forEach(([b, d, g, lab]) => {
+      const k = eo(segB(t, b, b + .6)); if (k <= 0) return;
+      ctx.save(); ctx.globalAlpha *= k; glow(X(d), Y(g), 40, GOLD_RGB, .8); circle(X(d), Y(g), 10, '#F3DBA4');
+      if (d < 30) txt(lab, X(d) + 30, Y(g) - 40, { size: 38, weight: 900, color: C.goldHi, align: 'left' }); else txt(lab, X(d) - 20, Y(g) - 30, { size: 38, weight: 900, color: C.goldHi, align: 'right' }); ctx.restore();
+    });
+  });
+}
+function sNasdaq(t) {
+  scene(t, 50, 64.6, A => {
+    const x0 = 260, x1 = 1660, y0 = 700, y1 = 200;
+    const X = yr => lerp(x0, x1, (yr - 1998) / 18), Y = v => lerp(y0, y1, v / 5500);
+    line(x0, y0, x1, y0, 'rgba(242,237,227,0.4)', 2);
+    [2000, 2002, 2005, 2010, 2015].forEach(yr => txt(String(yr), X(yr), y0 + 40, { size: 26, color: C.ink3 }));
+    // anchors are real closes; the path between them is schematic
+    const P = [[1998, 1700], [1999.5, 2900], [2000.2, 5048.62], [2001, 2400], [2002.78, 1114.11], [2004, 2000], [2007.8, 2800], [2009.2, 1300], [2011, 2700], [2013, 3200], [2015.31, 5056.06], [2016, 4900]];
+    const pk = eio(segB(t, 50.5, 61));
+    const tx = lerp(1998, 2016, pk);
+    ctx.save(); ctx.strokeStyle = '#E8B85C'; ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.beginPath();
+    for (let i = 0; i < P.length; i++) { if (P[i][0] > tx) { const p0 = P[i - 1], u = (tx - p0[0]) / (P[i][0] - p0[0]); ctx.lineTo(X(tx), Y(lerp(p0[1], P[i][1], u))); break; } i ? ctx.lineTo(X(P[i][0]), Y(P[i][1])) : ctx.moveTo(X(P[i][0]), Y(P[i][1])); }
+    ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.setLineDash([8, 8]); line(X(2000.2), Y(5048.62), x1, Y(5048.62), 'rgba(242,237,227,0.3)', 2); ctx.restore();
+    const lab = (b, yr, v, s1, s2, below) => { const k = eo(segB(t, b, b + .6)); if (k <= 0) return; ctx.save(); ctx.globalAlpha *= k; glow(X(yr), Y(v), 40, GOLD_RGB, .8); circle(X(yr), Y(v), 9, '#F3DBA4'); txt(s1, X(yr), Y(v) + (below ? 60 : -50), { size: 40, weight: 900, color: C.goldHi }); txt(s2, X(yr), Y(v) + (below ? 100 : -14), { size: 24, color: C.ink2 }); ctx.restore(); };
+    lab(50.8, 2000.2, 5048.62, '5048', '2000 年 3 月 10 日', false);
+    lab(53.6, 2002.78, 1114.11, '1114', '2002 年 10 月', true);
+    lab(59.6, 2015.31, 5056.06, '5056', '2015 年 4 月 23 日', false);
+    const gk = eo(segB(t, 56.5, 57.2));
+    if (gk > 0) { txtIn('−78%', X(2001.4), Y(3200), gk, { size: 64, weight: 900, color: DNL }); txtIn('要涨 +353%', X(2005), Y(4200), eo(segB(t, 57.4, 58)), { size: 56, weight: 900, color: UPL }); }
+    const yk = eo(segB(t, 60.5, 61.2));
+    if (yk > 0) { ctx.save(); ctx.globalAlpha *= yk; ctx.strokeStyle = C.goldHi; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(X(2000.2), y0 + 80); ctx.lineTo(X(2015.31), y0 + 80); ctx.stroke(); txt('15 年', (X(2000.2) + X(2015.31)) / 2, y0 + 128, { size: 44, weight: 900, color: C.goldHi }); ctx.restore(); }
+  });
+}
+function payslip(t, a, b, v, rows, hideTotal) {
+  scene(t, a, b, A => {
+    paperCard(660, 200, 600, 560, -.015, 1, (w, h) => {
+      pText('工资条', 40, 70, 40, { font: SERIF, weight: 900 });
+      line(40, 92, w - 40, 92, C.pInk3, 1.5);
+      rows.forEach(([bb, lab, val, col], i) => { const k = eo(segB(t, bb, bb + .6)); if (k <= 0) return; ctx.save(); ctx.globalAlpha *= k; pText(lab, 50, 160 + i * 80, 30, { font: SANS }); pText(val, w - 50, 160 + i * 80, 40, { align: 'right', font: SANS, weight: 900, color: col || C.pInk }); ctx.restore(); });
+      line(40, h - 150, w - 40, h - 150, C.pInk3, 1.5);
+      pText('实发', 50, h - 80, 32, { font: SANS, color: C.pInk2 });
+      pText(hideTotal ? '？ 元' : money(v) + ' 元', w - 50, h - 72, 64, { align: 'right', font: SANS, weight: 900, color: hideTotal ? C.seal : C.pInk });
+    });
+  });
+}
+function sSalary(t) {
+  const v = 10000 * (1 - .2 * eio(segB(t, 67.5, 68.5)));
+  payslip(t, 64, 73.4, v, [[64.5, '原来月薪', '10,000'], [67.5, '今年：降薪 20%', '−2,000', '#1FA971'], [70.5, '明年：涨薪 20%', '+ ?', '#E5484D']], t > B(70.5));
+}
+function sReveal(t) {
+  payslip(t, 79.2, 84.6, 9600, [[79.2, '原来月薪', '10,000'], [79.3, '降薪 20%', '−2,000', '#1FA971'], [79.4, '涨薪 20%（8000 的 20%）', '+1,600', '#E5484D']]);
+  scene(t, 79.4, 84.6, A => { popTxt('96%', 330, 560, t, 79.6, { size: 150, weight: 900, color: DNL, font: SANS }); txt('只有原来的', 330, 400, { size: 34, color: C.ink2, alpha: eo(segB(t, 79.6, 80.2)) }); });
+  scene(t, 84, 91.6, A => {
+    const tag = (x, b, top, price, col, strike) => { const k = eo(segB(t, b, b + .6)); if (k <= 0) return; ctx.save(); ctx.globalAlpha *= k; ctx.translate(x, 480); ctx.rotate(-.04);
+      rrect(-170, -120, 340, 240, 16); ctx.fillStyle = '#F8F5EE'; ctx.fill(); circle(-130, -80, 12, '#0B0A22');
+      txt(top, 0, -40, { size: 30, color: '#3A3F45', weight: 700 }); txt('¥' + price, 0, 60, { size: 80, weight: 900, color: col, font: SANS });
+      if (strike) line(-120, 40, 120, 40, '#3A3F45', 5); ctx.restore(); };
+    tag(420, 84.2, '原价', '100', '#1F2328', true);
+    tag(960, 85.4, '先提价 50%', '150', '#1F2328', true);
+    tag(1500, 86.6, '再打 7 折', '105', '#E5484D');
+    const k = eo(segB(t, 87.5, 88.1));
+    if (k > 0) rectStamp(1500, 720, '贵了 5%', k, 54, -.06);
+  });
+  scene(t, 91, 100.6, A => {
+    txtIn('听到"涨了 / 跌了 / 打了 X 折"', W / 2, 380, eo(segB(t, 91.2, 92)), { size: 44, color: C.ink2 });
+    txtIn('这是谁的', W / 2 - 200, 540, eo(segB(t, 95, 95.6)), { size: 120, weight: 900, font: SERIF });
+    popTxt('百分比？', W / 2 + 300, 540, t, 95.8, { size: 120, weight: 900, font: SERIF, metal: true });
+  });
+}
+function sDrag(t) {
+  scene(t, 100, 118.6, A => {
+    const col = (x, b, up, label) => {
+      const k = eio(segB(t, b, b + 1.2)); if (k <= 0) return;
+      const base = 780, sc = 3.2, h0 = 100 * sc, h1 = 100 * (1 + up) * sc, h2 = 100 * (1 + up) * (1 - up) * sc;
+      ctx.save(); ctx.globalAlpha *= Math.min(1, k * 2);
+      [[h0, 'rgba(242,237,227,0.8)', '100'], [h1 * Math.min(1, k * 1.5), UPL, String(Math.round(100 * (1 + up)))], [h2 * clamp(k * 1.5 - .5), DNL, String(Math.round(1e4 * (1 + up) * (1 - up)) / 100)]].forEach(([h, c, s], i) => {
+        const bx = x - 150 + i * 105; rrect(bx, base - h, 86, h, 6); ctx.fillStyle = c; ctx.fill(); if (h > 1) txt(s, bx + 43, base - h - 14, { size: 26, weight: 700, color: c });
+      });
+      txt(label, x, base + 50, { size: 34, weight: 900 });
+      ctx.restore();
+    };
+    txtIn('+50% 和 −50%，平均：0%', W / 2, 200, eo(segB(t, 100.4, 101)), { size: 50, weight: 900 });
+    txtIn('实际：剩 75%', W / 2, 270, eo(segB(t, 103.5, 104.1)), { size: 50, weight: 900, color: DNL });
+    col(420, 106.5, .1, '涨跌各 10%');
+    col(960, 110, .3, '涨跌各 30%');
+    col(1500, 113.5, .5, '涨跌各 50%');
+  });
+}
+function sBack(t) {
+  scene(t, 118, 134.6, A => {
+    ctx.save(); ctx.translate(W / 2, 470); ctx.rotate(.02 * Math.sin(t * 1.3));
+    ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 24;
+    rrect(-FP.w / 2, -FP.h / 2, FP.w, FP.h, 46); ctx.fillStyle = '#15161C'; ctx.fill(); ctx.shadowColor = 'transparent';
+    fundScreen(FP.w, FP.h, B(6)); ctx.restore();
+    txtIn('跌一半', 420, 470, eo(segB(t, 127.5, 128.1)), { size: 90, weight: 900, color: DNL, font: SERIF });
+    txtIn('涨一倍', 1500, 470, eo(segB(t, 128.3, 128.9)), { size: 90, weight: 900, color: UPL, font: SERIF });
+  });
+}
+window.EP = {
+  NO: '08', BEATS: 168,
+  SUBS: [
+    [1, 3, '本金 1 万，第一天涨了 50%', '¥10,000. Day one: up 50%.'],
+    [3, 5, '第二天，跌了 50%', 'Day two: down 50%.'],
+    [5, 7, '涨跌一样多，回本了吧？', 'Same up, same down. Back to even?'],
+    [7, 9.5, '实际上，亏了 2500', 'Actually, you lost ¥2,500.'],
+    [9.5, 12.1, '跌一半，要翻一倍才回得来', 'Lose half, and you need to double to get back.'],
+    [18.5, 21.5, '问题出在：两个 50%，基数不一样', 'The catch: the two 50%s start from different bases.'],
+    [21.5, 24.5, '涨的 50%，是 1 万的一半：5000', 'The rise is half of 10,000: 5,000.'],
+    [24.5, 27.5, '跌的 50%，是 1.5 万的一半：7500', 'The fall is half of 15,000: 7,500.'],
+    [27.5, 30.3, '涨得少，跌得多', 'Smaller up, bigger down.'],
+    [30.5, 34.2, '先跌后涨，结果也一样', 'Down first, then up: same result.'],
+    [34.5, 37.5, '跌得越多，回本越难', 'The deeper the fall, the harder the climb.'],
+    [37.5, 40.5, '跌 10%，要涨 11% 才回来', 'Down 10%: you need 11% back.'],
+    [40.5, 43.5, '跌 50%，要涨 100%', 'Down 50%: you need 100%.'],
+    [43.5, 47, '跌 80%，要涨 400%', 'Down 80%: you need 400%.'],
+    [47, 50.2, '这条线，越往后越陡', 'The curve gets steeper and steeper.'],
+    [50.5, 53.5, '2000 年 3 月，纳斯达克冲到 5048 点', 'March 2000: the Nasdaq hits 5,048.'],
+    [53.5, 56.5, '两年半后，跌到 1114 点', 'Two and a half years later: 1,114.'],
+    [56.5, 59.5, '跌了近八成，要涨约 350% 才回得去', 'Down nearly 80%, it needs about 350% to recover.'],
+    [59.5, 63.8, '它用了整整 15 年', 'It took fifteen years.'],
+    [64.5, 67.5, '换成工资：今年降薪 20%', 'Now a salary: a 20% pay cut this year,'],
+    [67.5, 70.5, '明年，再涨薪 20%', 'then a 20% raise next year.'],
+    [70.5, 73, '回到原来的工资了吗？', 'Are you back where you started?'],
+    [78.5, 81, '没回来：只有原来的 96%', 'No. Only 96% of before.'],
+    [81, 84, '1 万降到 8000，再涨 20%，是 9600', '10,000 → 8,000 → 9,600.'],
+    [84, 87.5, '商场里也一样：先提价 50%，再打 7 折', 'Shops do it too: raise 50%, then 30% off.'],
+    [87.5, 91, '看着打了折，其实贵了 5%', 'It looks like a deal. It\'s 5% dearer.'],
+    [91, 95, '所以听到百分比，先问一句', 'So whenever you hear a percentage, ask:'],
+    [95, 99.6, '这是谁的百分比？', 'a percentage of what?'],
+    [100.5, 103.5, '+50% 和 −50%，平均是 0', '+50% and −50% average out to zero.'],
+    [103.5, 106.5, '可你的钱，少了四分之一', 'Yet a quarter of your money is gone.'],
+    [106.5, 110, '涨跌各 10%：剩 99%', 'Up and down 10%: 99% left.'],
+    [110, 114, '涨跌各 30%：剩 91%', 'Up and down 30%: 91% left.'],
+    [114, 117.6, '波动越大，悄悄亏得越多', 'The bigger the swings, the more you quietly lose.'],
+    [118.5, 121.5, '回到开头那 1 万块', 'Back to that first ¥10,000.'],
+    [121.5, 124.5, '涨跌一样多，少了 2500', 'Same up as down, and ¥2,500 is gone.'],
+    [124.5, 127.5, '不是运气差，是数学', 'Not bad luck. Just math.'],
+    [127.5, 133.5, '跌下去容易，涨回来要加倍', 'Falling is easy. Climbing back takes double.'],
+    [161, 164.4, '评论区说说', 'Tell us in the comments.'],
+  ],
+  TOPLABELS: [[18, 34, '基数'], [34, 50, '回本线'], [50, 64, '2000–2015 · 纳斯达克'], [64, 78, '换个场景'], [78, 100, '谁的百分比'], [100, 118, '波动拖累'], [118, 134, '回到开头']],
+  NOTES: [[1, 12, '基金名称与数字为示意 · 不构成投资建议'], [37.5, 50, '回本所需涨幅 = 1 ÷ (1 − 跌幅) − 1'], [50.5, 64, '纳斯达克综合指数收盘点位为真实数据，中间走势为示意'], [84, 91, '价格为示意'], [100.5, 118, '涨跌各 x：1 × (1 + x) × (1 − x) = 1 − x²']],
+  SCENES: [sFund, t => titleCard(t, 12, 18.6, '回不去的本', '涨跌一样多，钱为什么少了？', 'The Way Back Is Longer', '复利'),
+    sBase, sCurve, sNasdaq, sSalary,
+    t => predict(t, 73, ['回到 1 万', '降了又涨，扯平了'], ['不到 1 万', '还差一点'], 1, { header: '先别划走 · 工资回来了吗？' }),
+    sReveal, sDrag, sBack,
+    t => toolCard(t, 134, 150.6, '先算回本线', 'Know the way back', [
+      ['先算回本', '跌了多少，先算要涨多少才回来', 'Work out the gain you need to get back.'],
+      ['先问基数', '听到百分比，先问是谁的百分比', 'Ask: a percentage of what?'],
+      ['看剩多少', '别只看平均涨幅，看最后剩多少', 'Look at what is left, not the average.']], '自问：这个百分比，是谁的百分比？'),
+    t => goldenLine(t, 150, 158.6, '跌下去一半，', '要涨一倍回来', '——涨跌一样多，不等于不亏', 'Lose half, and you need to double.'),
+    t => questionCards(t, 158, 164.6, '你遇到过最狠的"先涨后降"是？', 'Your worst "raise it, then discount it"?', [['购物节', 'sales'], ['工资', 'salary'], ['房租', 'rent'], ['基金', 'funds']]),
+    t => endNote(t, 164, ['纳斯达克数据为收盘点位，中间走势为示意', '基金、工资、商品价格为示意数字', '不构成投资建议 · 参考资料见评论区'])],
+  cover: t => coverText(t, '涨 50%，再跌 50%', '亏了 25%', '涨跌一样多，钱为什么少了？', '数学 · 回不去的本', { s1: 92, l2color: '#4FD39A', l2glow: 'rgba(79,211,154,0.35)' }),
+};
+
+</script>
+<script src="lib.js"></script>
+</body></html>

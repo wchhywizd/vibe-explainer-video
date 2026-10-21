@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>02 · 一百五十</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:100vw;height:auto}</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script>
+// 02 · 邓巴数（试片 16 拍 = 12.8 秒）
+const CY = 470, CX = 1330;
+const RINGS = [
+  {r: 92, n: '5', k: 2.4, s: 34},
+  {r: 170, n: '15', k: 1.6, s: 36},
+  {r: 264, n: '50', k: .8, s: 40},
+  {r: 366, n: '150', k: -1.6, s: 52},
+];
+function sHook(t){
+  scene(t, -0.4, 12.2, A => {
+    txtIn('微信好友 3000 人，按亲密程度拆开', 200, 140, eo(segB(t, .3, 1.3)), {size: 34, weight: 700, color: C.ink2, align: 'left', ls: 2});
+
+    // 外圈第 0 帧就在
+    RINGS.forEach((o, i) => {
+      const k = i === 3 ? 1 : eob(segB(t, o.k, o.k + .9));
+      if (k <= 0) return;
+      const r = o.r * (i === 3 ? 1 : k);
+      const cnt = parseInt(o.n);
+      ctx.save(); ctx.globalAlpha *= i === 3 ? .95 : .85;
+      if (i === 3) {
+        const g = ctx.createRadialGradient(CX, CY, r * .2, CX, CY, r);
+        g.addColorStop(0, 'rgba(201,169,106,0.02)'); g.addColorStop(1, 'rgba(201,169,106,0.10)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(CX, CY, r, 0, 6.283); ctx.fill();
+      }
+      circle(CX, CY, r, null, i === 3 ? 'rgba(201,169,106,0.72)' : 'rgba(201,169,106,0.5)', i === 3 ? 2.6 : 1.4);
+      // 圈上的人：每层按人数排点
+      for (let j = 0; j < cnt; j++) {
+        const an = j / cnt * 6.283 - Math.PI / 2;
+        circle(CX + Math.cos(an) * r, CY + Math.sin(an) * r, i === 3 ? 2.6 : 3.4,
+          i === 3 ? 'rgba(201,169,106,0.75)' : C.gold, null);
+      }
+      ctx.restore();
+      const kn = eo(segB(t, Math.max(o.k, 0) + .3, Math.max(o.k, 0) + 1.0));
+      if (kn > 0) {
+        const an = -2.36;
+        txt(o.n, CX + Math.cos(an) * r * .78, CY + Math.sin(an) * r * .78 + 12, {size: o.s, weight: 900, font: SERIF, alpha: kn,
+          color: i === 3 ? C.goldHi : C.gold, glow: i === 3 ? 'rgba(232,184,92,0.35)' : null});
+      }
+    });
+    if (t > .4) circle(CX, CY, 9, C.ink, null);
+
+    const kk = eo(segB(t, 5.2, 6.3));
+    txtIn('关系有天花板', 200, 400, kk, {size: 62, weight: 900, font: SERIF, color: C.goldHi, align: 'left', glow: 'rgba(232,184,92,0.28)'});
+    const kk2 = eo(segB(t, 6.6, 7.7));
+    txtIn('150 人是稳定上限', 200, 486, kk2, {size: 40, weight: 700, color: C.ink, align: 'left'});
+    const kk3 = eo(segB(t, 8.2, 9.2));
+    txtIn('不是你不努力，是容量只有这么大', 200, 544, kk3, {size: 30, color: C.ink2, align: 'left'});
+  }, {cx: W / 2, cy: 430, push: .02});
+}
+window.EP = {
+  NO: '02', BEATS: 18,
+  SUBS: [
+    [0.2, 4.2, '微信里三千个好友，真正能借到钱的，不到五个', 'Three thousand contacts. Fewer than five you could borrow money from.'],
+    [4.4, 8.2, '人类学家把社交圈按亲密程度拆成四层：5、15、50、150', 'Anthropologists split our circles into four layers: 5, 15, 50, 150.'],
+    [8.4, 11.8, '150 是你能稳定维护的关系上限，再多就开始漏水', '150 is the ceiling for stable relationships. Beyond it, the edges leak.'],
+  ],
+  TOPLABELS: [[0.6, 11.6, '关系 · 邓巴数']],
+  NOTES: [[4, 11.4, '分层比例为示意；邓巴数指约 150 人的稳定社交上限']],
+  SCENES: [
+    sHook,
+    t => titleCard(t, 12, 16.6, '一百五十', '微信三千人，能借到钱的不到五个', "Dunbar's Number", '上限'),
+  ],
+  cover: t => coverText(t, '三千个好友，', '五个能借钱', '社交圈其实是一层一层缩小的。', '关系 · 邓巴数', {s1: 104, scrimW: 900}),
+};
+</script>
+<script src="lib.js"></script>
+</body></html>

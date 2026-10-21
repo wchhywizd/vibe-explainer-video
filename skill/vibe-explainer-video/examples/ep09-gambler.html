@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>号码不记得</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:100vw;height:auto}</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script>
+// 选题 7 · 赌徒谬论 ——《号码不记得》全片（168 拍 = 134.4 秒）
+// 一张“第一位号码”走势图：10 列（0–9），每期一个开奖号；7 已经 30 期没出现
+const ROWS = (() => { let s = 11 >>> 0; const r = () => { s += 0x6D2B79F5; let q = Math.imul(s ^ s >>> 15, 1 | s); q ^= q + Math.imul(q ^ q >>> 7, 61 | q); return ((q ^ q >>> 14) >>> 0) / 4294967296; };
+  const a = []; for (let i = 0; i < 44; i++) { let d; do { d = Math.floor(r() * 10); } while (d === 7); a.push(d); } return a; })();
+const CH = { x: 760, y: 118, colW: 94, rowH: 34, cols: 10, rows: 18 };
+function trendChart(t, a) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a;
+  const { x, y, colW, rowH, cols, rows } = CH;
+  const w = colW * cols + 150, h = rowH * (rows + 3) + 20;
+  pats();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
+  ctx.fillStyle = PAT; ctx.fillRect(x - 20, y - 20, w, h); ctx.shadowColor = 'transparent';
+  // header
+  txt('第一位 · 走势图', x + 10, y + 26, { size: 26, weight: 900, color: C.pInk, align: 'left', font: SERIF });
+  for (let c = 0; c < cols; c++) txt(String(c), x + 130 + c * colW, y + 66, { size: 26, weight: 700, color: c === 7 ? C.seal : C.pInk, font: MONO });
+  // rows scroll upward: one new draw per beat (period)
+  const scroll = (t / BEAT) % 1, base = Math.floor(t / BEAT);
+  ctx.save(); ctx.beginPath(); ctx.rect(x - 20, y + 80, w, rowH * rows); ctx.clip();
+  for (let i = 0; i < rows + 2; i++) {
+    const idx = (base + i) % ROWS.length, ry = y + 80 + (i - scroll) * rowH;
+    const period = 2026120 + idx;
+    if (i % 2) { ctx.fillStyle = 'rgba(43,39,35,0.04)'; ctx.fillRect(x - 20, ry, w, rowH); }
+    txt(String(period), x + 10, ry + 21, { size: 16, color: C.pInk2, align: 'left', font: MONO });
+    for (let c = 0; c < cols; c++) {
+      const cx = x + 130 + c * colW, cy = ry + rowH / 2;
+      if (ROWS[idx] === c) { circle(cx, cy, 12, '#C8372D'); txt(String(c), cx, cy + 6, { size: 16, weight: 700, color: '#fff', font: MONO }); }
+      else txt(String(1 + ((idx * 7 + c * 3) % 9)), cx, cy + 6, { size: 14, color: 'rgba(43,39,35,0.28)', font: MONO });
+    }
+  }
+  ctx.restore();
+  // 遗漏 row
+  const my = y + 80 + rowH * rows + 8;
+  line(x - 10, my - 4, x + w - 30, my - 4, C.pInk3, 1.5);
+  txt('当前遗漏', x + 10, my + 26, { size: 18, weight: 700, color: C.pInk, align: 'left' });
+  for (let c = 0; c < cols; c++) txt(c === 7 ? '30' : String([2, 5, 1, 9, 3, 6, 4, 0, 8, 2][c]), x + 130 + c * colW, my + 26, { size: c === 7 ? 26 : 18, weight: c === 7 ? 900 : 500, color: c === 7 ? C.seal : C.pInk2, font: MONO });
+  // column 7 empty strip
+  ctx.fillStyle = 'rgba(200,55,45,0.06)'; ctx.fillRect(x + 130 + 7 * colW - colW / 2, y + 80, colW, rowH * rows);
+  ctx.restore();
+}
+function marker(t) {          // a red marker-pen loop around 遗漏 30 and the empty column
+  const k = eio(segB(t, 0.6, 2.2));
+  if (k <= 0) return;
+  const cx = CH.x + 130 + 7 * CH.colW, cy = CH.y + 80 + CH.rowH * CH.rows + 34;
+  ctx.save(); ctx.strokeStyle = 'rgba(214,40,40,0.9)'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let i = 0; i <= 80 * k; i++) { const a = -1.6 + i / 80 * 6.6, r = 36 + Math.sin(i * .7) * 2; const px = cx + Math.cos(a) * r * 1.2, py = cy + Math.sin(a) * r * .8; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+  ctx.stroke();
+  const a2 = eio(segB(t, 1.6, 2.6));
+  ctx.beginPath(); ctx.moveTo(cx + 50, cy - 40); ctx.lineTo(cx + 50 + 160 * a2, cy - 40 - 120 * a2); ctx.stroke();
+  if (a2 > .6) txt('该出了！', cx + 260, cy - 168, { size: 40, weight: 900, color: '#D62828', font: SERIF, alpha: (a2 - .6) / .4 });
+  ctx.restore();
+}
+function sChart(t) {
+  const A = winB(t, -1, 12.6, .01, .6);
+  if (A <= 0) return;
+  ctx.save(); ctx.globalAlpha = A;
+  push(t, 0, 12.5, .05, 1200, 520);
+  const out = eio(segB(t, 8.6, 9.6));
+  ctx.save(); ctx.translate(-700 * out, 0); ctx.globalAlpha *= 1 - out;
+  trendChart(t, 1); marker(t);
+  ctx.restore();
+  // beat 5: the ball doesn't remember — a 7-ball with a question mark
+  const bk = winB(t, 4.9, 9.4, .4, .4);
+  if (bk > 0) {
+    ctx.save(); ctx.globalAlpha *= bk;
+    ctx.fillStyle = 'rgba(6,6,26,0.82)'; ctx.fillRect(0, 0, 680, H);
+    const bx = 360, by = 420 + Math.sin(t * 2.2) * 8;
+    glow(bx, by, 220, '230,80,70', .35);
+    const g = ctx.createRadialGradient(bx - 30, by - 34, 8, bx, by, 110); g.addColorStop(0, '#FF8A80'); g.addColorStop(1, '#B3261E');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, 110, 0, 6.283); ctx.fill();
+    circle(bx, by, 56, '#FFF6EE'); txt('7', bx, by + 26, { size: 76, weight: 900, color: '#B3261E', font: SANS });
+    const q = eo(segB(t, 5.4, 6.2));
+    txtIn('它不记得', bx, 640, q, { size: 64, weight: 900, font: SERIF });
+    const p = eo(segB(t, 7, 7.6));
+    const pop = t > B(7) ? 1 + .06 * Math.exp(-(t - B(7)) * 7) : 1;
+    ctx.save(); ctx.translate(bx, 770); ctx.scale(pop, pop);
+    txtIn('每一期都是 1/10', 0, 0, p, { size: 54, weight: 900, metal: true, font: SERIF });
+    ctx.restore();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+// beat 9.5: Monte Carlo, 1913 — a roulette wheel turning
+function sWheel(t) {
+  const A = winB(t, 9.3, 12.4, .5, .5);
+  if (A <= 0) return;
+  ctx.save(); ctx.globalAlpha = A;
+  const cx = W / 2, cy = 470, R1 = 300, spin = t * 1.6;
+  glow(cx, cy, 520, '255,210,150', .18);
+  for (let i = 0; i < 37; i++) {
+    const a0 = spin + i / 37 * Math.PI * 2, a1 = a0 + Math.PI * 2 / 37;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R1, a0, a1); ctx.closePath();
+    ctx.fillStyle = i === 0 ? '#1F8F5F' : (i % 2 ? '#B3261E' : '#16161C'); ctx.fill();
+  }
+  circle(cx, cy, R1 * .62, '#5A3A1E'); circle(cx, cy, R1 * .58, '#2A1A10');
+  circle(cx, cy, R1 + 14, null, '#C9A96A', 6);
+  // the streak counter: 26 blacks
+  const n = Math.floor(lerp(1, 26, eio(segB(t, 9.8, 11.6))));
+  txt(String(n), cx, cy + 34, { size: 110, weight: 900, color: '#F3DBA4', font: SANS });
+  txt('次黑', cx, cy + 92, { size: 34, color: C.ink2 });
+  for (let i = 0; i < 26; i++) {
+    const on = i < n; const bx = W / 2 - 25 * 34 / 2 + i * 34, by = 840;
+    circle(bx, by, 12, on ? '#16161C' : 'rgba(255,255,255,0.08)', on ? 'rgba(242,237,227,0.6)' : null, 2);
+  }
+  ctx.restore();
+}
+
+// ---------------- full episode scenes ----------------
+function wheel(cx, cy, R1, spin, streak, t) {
+  glow(cx, cy, R1 * 1.7, '255,210,150', .16);
+  for (let i = 0; i < 37; i++) {
+    const a0 = spin + i / 37 * Math.PI * 2, a1 = a0 + Math.PI * 2 / 37;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R1, a0, a1); ctx.closePath();
+    ctx.fillStyle = i === 0 ? '#1F8F5F' : (i % 2 ? '#B3261E' : '#16161C'); ctx.fill();
+  }
+  circle(cx, cy, R1 * .62, '#5A3A1E'); circle(cx, cy, R1 * .58, '#2A1A10');
+  circle(cx, cy, R1 + 12, null, '#C9A96A', 6);
+  if (streak !== undefined) { txt(String(streak), cx, cy + R1 * .12, { size: R1 * .36, weight: 900, color: '#F3DBA4', font: SANS }); txt('次黑', cx, cy + R1 * .32, { size: R1 * .11, color: C.ink2 }); }
+}
+function sMonte(t) {
+  scene(t, 18, 34.6, A => {
+    const n = Math.floor(lerp(4, 26, eio(segB(t, 21.5, 28.4))));
+    wheel(470, 450, 250, t * 1.6, n, t);
+    // a player's paper scorecard: Rouge / Noir
+    paperCard(1000, 160, 560, 640, .02, 1, (w, h) => {
+      pText('MONTE-CARLO · 18 AOÛT 1913', w / 2, 56, 20, { align: 'center', ls: 3, color: C.pInk2 });
+      line(40, 76, w - 40, 76, C.pInk3, 1.5);
+      pText('ROUGE', w * .3, 120, 30, { align: 'center', weight: 700, color: C.seal });
+      pText('NOIR', w * .7, 120, 30, { align: 'center', weight: 700 });
+      line(w / 2, 90, w / 2, h - 40, C.pInk3, 1.5);
+      for (let i = 0; i < n; i++) { const c = i % 13, r = Math.floor(i / 13); circle(w * .7 - 60 + r * 120, 160 + c * 34, 10, C.pInk); }
+      pText('记分卡·示意', w - 30, h - 18, 15, { font: SANS, align: 'right', color: C.pInk2 });
+    });
+    // chips pile up on ROUGE as the streak grows, then vanish
+    const ck = eo(segB(t, 24.5, 26)), gone = eio(segB(t, 30.6, 31.6));
+    for (let i = 0; i < 26 * ck; i++) {
+      const x = 800 + (i % 6) * 30, y = 800 - Math.floor(i / 6) * 16;
+      ctx.save(); ctx.globalAlpha *= 1 - gone; ctx.translate(0, -gone * 120 * ((i % 5) / 5));
+      ctx.beginPath(); ctx.ellipse(x, y, 22, 9, 0, 0, 6.283); ctx.fillStyle = i % 3 ? '#C2302B' : '#E8B85C'; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.stroke();
+      ctx.restore();
+    }
+    if (gone > 0) txtIn('数百万法郎', 870, 760, gone, { size: 54, weight: 900, color: C.redHi });
+  });
+}
+function sNoMemory(t) {
+  scene(t, 34, 50.6, A => {
+    for (let i = 0; i < 7; i++) {
+      const k = eo(segB(t, 34.6 + i * .4, 35.2 + i * .4)); if (k <= 0) continue;
+      const x = 260 + i * 233;
+      ctx.save(); ctx.globalAlpha *= k;
+      wheel(x, 380, 96, t * 1.6 + i, undefined, t);
+      txt(i < 6 ? `第 ${i + 21} 次` : '第 27 次', x, 530, { size: 26, color: i === 6 ? C.goldHi : C.ink2 });
+      txt('18/37', x, 590, { size: 44, weight: 900, color: i === 6 ? C.goldHi : C.ink, font: SANS });
+      ctx.restore();
+    }
+    const rk = eo(segB(t, 40.5, 41.2));
+    if (rk > 0) {
+      ctx.save(); ctx.globalAlpha *= rk;
+      txt('连开 26 次同一种颜色', W / 2, 690, { size: 36, color: C.ink2 });
+      popTxt('约 6840 万分之一', W / 2, 790, t, 43.5, { size: 84, weight: 900, color: C.goldHi, font: SANS });
+      ctx.restore();
+    }
+  });
+}
+function sSmall(t) {
+  scene(t, 50, 64.6, A => {
+    // running share of heads: noisy at first, settling near 50%
+    const x0 = 260, x1 = 1660, y0 = 720, y1 = 260, N = 1000;
+    const r = rng(23); let h = 0; const pts = [];
+    for (let i = 1; i <= N; i++) { h += r() < .5 ? 1 : 0; pts.push(h / i); }
+    pts[0] = 1; pts[1] = 1; pts[2] = 2 / 3;
+    const X = i => x0 + (x1 - x0) * Math.log10(i) / 3, Y = p => lerp(y0, y1, p);
+    line(x0, Y(.5), x1, Y(.5), 'rgba(242,237,227,0.35)', 2);
+    txt('50%', x0 - 16, Y(.5) + 8, { size: 26, color: C.ink2, align: 'right' });
+    [1, 10, 100, 1000].forEach(n => txt(n + ' 次', X(n), y0 + 44, { size: 26, color: C.ink3 }));
+    const k = eio(segB(t, 53.5, 59.5)), m = Math.max(2, Math.floor(N ** k));
+    ctx.save(); ctx.strokeStyle = '#E8B85C'; ctx.lineWidth = 4; ctx.beginPath();
+    for (let i = 1; i <= m; i++) { const px = X(i), py = Y(pts[i - 1]); i === 1 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); }
+    ctx.stroke(); ctx.restore();
+    txt('正面占比', x0, y1 - 40, { size: 28, color: C.ink2, align: 'left' });
+    const dk = eo(segB(t, 59.5, 60.3));
+    if (dk > 0) {
+      ctx.save(); ctx.globalAlpha *= dk; ctx.fillStyle = 'rgba(6,6,26,0.8)'; ctx.fillRect(0, 150, W, 720); ctx.restore();
+      docCard(560, 170, 800, 540, -.01, segB(t, 59.5, 60.6), { top: ['PSYCHOLOGICAL BULLETIN · 1971'], title: ['Belief in the Law', 'of Small Numbers'], author: 'AMOS TVERSKY  &  DANIEL KAHNEMAN', seal: '小数', sealK: eo(segB(t, 61.6, 62.2)) }, t);
+    }
+  });
+}
+function coinRow(x, y, seq, k, label, size = 92) {
+  if (k <= 0) return;
+  ctx.save(); ctx.globalAlpha *= k;
+  txt(label, x - 90, y + 16, { size: 64, weight: 900, italic: true, font: LATIN, color: C.goldHi });
+  [...seq].forEach((c, i) => {
+    const cx = x + i * (size + 22), heads = c === '正';
+    const g = ctx.createRadialGradient(cx - 14, y - 16, 4, cx, y, size / 2); g.addColorStop(0, heads ? '#FFE7A8' : '#D9DCE3'); g.addColorStop(1, heads ? '#B8862E' : '#7A7F8C');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, y, size / 2, 0, 6.283); ctx.fill();
+    txt(c, cx, y + 14, { size: 38, weight: 900, color: '#2A1C08' });
+  });
+  ctx.restore();
+}
+function sCoins(t) {
+  scene(t, 64, 73.4, A => {
+    coinRow(560, 360, '正反正反正反', eo(segB(t, 67.5, 68.2)), 'A');
+    coinRow(560, 560, '正正正正正正', eo(segB(t, 68.3, 69)), 'B');
+    const k = eo(segB(t, 64.5, 65.2));
+    if (k > 0 && t < B(67.5)) {
+      const flip = Math.abs(Math.cos(t * 9));
+      ctx.save(); ctx.globalAlpha *= k; ctx.translate(W / 2, 470); ctx.scale(1, flip);
+      const g = ctx.createRadialGradient(-20, -20, 6, 0, 0, 110); g.addColorStop(0, '#FFE7A8'); g.addColorStop(1, '#B8862E');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 110, 0, 6.283); ctx.fill(); ctx.restore();
+    }
+  });
+}
+function sReveal(t) {
+  scene(t, 79.2, 87.6, A => {
+    coinRow(400, 280, '正反正反正反', 1, 'A', 70);
+    coinRow(400, 420, '正正正正正正', 1, 'B', 70);
+    popTxt('1/64', 1520, 300, t, 79.4, { size: 64, weight: 900, color: C.goldHi, font: SANS });
+    popTxt('1/64', 1520, 440, t, 79.6, { size: 64, weight: 900, color: C.goldHi, font: SANS });
+    // how many 6-flip sequences have k heads: 1 6 15 20 15 6 1
+    const H = [1, 6, 15, 20, 15, 6, 1], hk = eio(segB(t, 84, 85.4));
+    if (hk > 0) {
+      ctx.save(); ctx.globalAlpha *= hk;
+      ctx.fillStyle = 'rgba(6,6,26,0.85)'; ctx.fillRect(0, 160, W, 700);
+      H.forEach((v, i) => { const x = 520 + i * 130, h = v * 22 * hk; rrect(x, 760 - h, 96, h, 6); ctx.fillStyle = i === 3 ? '#E8B85C' : (i === 6 ? '#F08A72' : 'rgba(242,237,227,0.7)'); ctx.fill(); txt(String(v), x + 48, 740 - h, { size: 30, weight: 900, color: i === 3 ? C.goldHi : C.ink }); txt(i + ' 个正', x + 48, 806, { size: 24, color: C.ink2 }); });
+      txt('6 次里有几个正面：一共 64 种顺序', W / 2, 230, { size: 34, color: C.ink2 });
+      ctx.restore();
+    }
+  });
+  scene(t, 87, 100.6, A => {
+    // a hoop and a falling ball
+    const hx = 400, hy = 330;
+    ctx.strokeStyle = 'rgba(242,237,227,0.8)'; ctx.lineWidth = 6; ctx.strokeRect(hx - 90, hy - 140, 180, 120);
+    ctx.strokeStyle = '#E07A2E'; ctx.beginPath(); ctx.ellipse(hx, hy, 70, 14, 0, 0, 6.283); ctx.stroke();
+    for (let i = -3; i <= 3; i++) line(hx + i * 20, hy + 6, hx + i * 12, hy + 90, 'rgba(242,237,227,0.5)', 2);
+    const u = (t * .8) % 1, bx = lerp(hx - 320, hx, u), by = lerp(hy + 220, hy, u) - Math.sin(u * Math.PI) * 260;
+    circle(bx, by, 40, '#E07A2E', '#5A2A08', 3);
+    docCard(720, 150, 520, 600, -.02, segB(t, 91, 92), { top: ['COGNITIVE PSYCHOLOGY · 1985'], title: ['The Hot Hand', 'in Basketball'], titleSize: 36, author: 'GILOVICH · VALLONE · TVERSKY', seal: '错觉', sealK: eo(segB(t, 92.6, 93.2)) }, t);
+    docCard(1300, 190, 520, 600, .02, segB(t, 95, 96), { top: ['ECONOMETRICA · 2018'], title: ['Surprised by the', 'Hot Hand Fallacy?'], titleSize: 34, author: 'MILLER  &  SANJURJO', seal: '反转', sealK: eo(segB(t, 96.6, 97.2)) }, t);
+  });
+}
+function sMemory(t) {
+  scene(t, 100, 118.6, A => {
+    const col = (x, title, items, b, color) => {
+      const k = eo(segB(t, b, b + .6)); if (k <= 0) return;
+      ctx.save(); ctx.globalAlpha *= k;
+      txt(title, x, 260, { size: 52, weight: 900, color, font: SERIF });
+      items.forEach((s, i) => { const ik = eo(segB(t, b + .4 + i * .3, b + 1 + i * .3)); rrect(x - 200, 310 + i * 110 - 40, 400, 84, 14); ctx.fillStyle = 'rgba(242,237,227,0.08)'; ctx.fill(); txtIn(s, x, 310 + i * 110 + 14, ik, { size: 38, weight: 700 }); });
+      ctx.restore();
+    };
+    col(480, '没有记忆', ['硬币', '骰子', '彩票', '轮盘'], 106.5, C.ink);
+    col(1440, '有记忆', ['投篮手感', '身体疲劳', '天气'], 110, C.goldHi);
+    const gk = eo(segB(t, 114, 114.6));
+    if (gk > 0) { ctx.save(); ctx.globalAlpha *= gk; rrect(1240, 640, 400, 84, 14); ctx.strokeStyle = C.seal; ctx.lineWidth = 3; ctx.stroke(); txt('抽卡"保底"', 1440, 694, { size: 38, weight: 900, color: C.redHi }); ctx.restore(); }
+    const pk = winB(t, 100.3, 106.6, .4, .4);
+    if (pk > 0) { popTxt('投篮手感：可能是真的', W / 2, 420, t, 100.5, { size: 76, weight: 900, color: C.goldHi, alpha: pk }); txtIn('人会累 · 会紧张 · 会进入状态', W / 2, 560, pk * eo(segB(t, 103.5, 104.2)), { size: 46, color: C.ink }); }
+  });
+}
+function sBack(t) {
+  scene(t, 118, 134.6, A => {
+    trendChart(t, 1); marker(t + B(2.5));
+    const k = eo(segB(t, 121.5, 122.2));
+    if (k > 0) { ctx.fillStyle = `rgba(6,6,26,${.8 * k})`; ctx.fillRect(0, 0, 700, H); popTxt('1/10', 360, 520, t, 121.6, { size: 150, weight: 900, color: C.goldHi, font: SANS }); txt('下一期', 360, 380, { size: 40, color: C.ink2, alpha: k }); }
+  }, { cx: 1200, cy: 520 });
+}
+window.EP = {
+  NO: '09', BEATS: 168,
+  SUBS: [
+    [1, 3, '这个号，已经 30 期没开了', 'This number hasn\'t come up in 30 draws.'],
+    [3, 5, '下一期，该轮到它了吧？', 'It\'s due next time, surely?'],
+    [5, 7, '可是号码不记得自己多久没出现', 'But a number has no memory.'],
+    [7, 9.5, '每一期，它的机会都一样', 'Every draw, its chance is exactly the same.'],
+    [9.5, 12.1, '1913 年，蒙特卡洛赌场连开 26 次黑', 'Monte Carlo, 1913: black, 26 times in a row.'],
+    [18.5, 21.5, '1913 年 8 月 18 日，蒙特卡洛赌场', 'Monte Carlo Casino, 18 August 1913.'],
+    [21.5, 24.5, '黑色，一次接一次地开', 'Black comes up. Then again. And again.'],
+    [24.5, 27.5, '越来越多人押红：总该轮到红了吧', 'More and more bet on red. Surely red is due.'],
+    [27.5, 30.3, '黑色一直开到了第 26 次', 'Black keeps coming, 26 times.'],
+    [30.5, 34.2, '押红的人，输掉了数百万法郎', 'Those betting red lose millions of francs.'],
+    [34.5, 37.5, '可是轮盘不记得上一次', 'But the wheel does not remember.'],
+    [37.5, 40.5, '每一次开黑的机会，都是 37 分之 18', 'Every spin, black is 18 in 37.'],
+    [40.5, 43.5, '连开 26 次同一种颜色，确实罕见', 'Twenty-six of one colour is genuinely rare,'],
+    [43.5, 47, '大约 6840 万次才遇上一回', 'about one in 68 million.'],
+    [47, 50.2, '但它不会让下一次更可能开红', 'Yet it does not make red any more likely next.'],
+    [50.5, 53.5, '为什么我们总觉得"该轮到了"？', 'Why do we feel something is "due"?'],
+    [53.5, 56.5, '因为我们以为，短短几次也该一半一半', 'We expect a few tries to split fifty-fifty.'],
+    [56.5, 59.5, '其实要很多次，才会慢慢接近一半', 'It takes many tries to drift towards half.'],
+    [59.5, 63.8, '1971 年，特沃斯基和卡尼曼管它叫"小数定律"', 'In 1971, Tversky and Kahneman called it the law of small numbers.'],
+    [64.5, 67.5, '抛 6 次硬币，看这两串', 'Flip a coin six times. Look at these two.'],
+    [67.5, 70.5, 'A：正反正反正反　B：正正正正正正', 'A: HTHTHT    B: HHHHHH'],
+    [70.5, 73, '哪一串更可能出现？', 'Which is more likely?'],
+    [78.5, 81, '答案：一样可能，都是 64 分之 1', 'Equally likely: 1 in 64 each.'],
+    [81, 84, '每一种具体的顺序，机会都相同', 'Every specific sequence has the same chance.'],
+    [84, 87.5, '我们只是更熟悉"乱"的样子', 'We just recognise the look of "mixed".'],
+    [87.5, 91, '但也别急着说"全是错觉"', 'But don\'t call everything an illusion.'],
+    [91, 95, '1985 年，心理学家说投篮"手感"是错觉', '1985: psychologists called the hot hand an illusion.'],
+    [95, 99.6, '2018 年，经济学家发现那项研究的算法有偏差', '2018: economists found a bias in how it was measured.'],
+    [100.5, 103.5, '修正后，投篮手感可能真的存在', 'Corrected, the hot hand may well be real.'],
+    [103.5, 106.5, '因为人会累、会紧张、会进入状态', 'People tire, tense up, get into a groove.'],
+    [106.5, 110, '硬币、骰子、彩票，没有记忆', 'Coins, dice and lotteries have no memory.'],
+    [110, 114, '人、身体、天气，有记忆', 'People, bodies and weather do.'],
+    [114, 117.6, '游戏抽卡的"保底"，是写进规则的记忆', 'A game\'s pity timer is memory written into the rules.'],
+    [118.5, 121.5, '回到开头那个 30 期没开的号', 'Back to the number that skipped 30 draws.'],
+    [121.5, 124.5, '下一期，它的机会还是十分之一', 'Next draw, it\'s still one in ten.'],
+    [124.5, 127.5, '它不欠你，也不记账', 'It owes you nothing. It keeps no books.'],
+    [127.5, 133.5, '下一次，永远是新的一次', 'The next time is always a fresh time.'],
+    [161, 164.4, '评论区说说', 'Tell us in the comments.'],
+  ],
+  TOPLABELS: [[9.5, 12.2, '1913 · 蒙特卡洛'], [18, 34, '1913 · 蒙特卡洛'], [34, 50, '轮盘没有记忆'], [50, 64, '小数定律'], [64, 78, '考考你'], [78, 100, '1985 → 2018 · 投篮手感'], [100, 118, '谁有记忆'], [118, 134, '回到开头']],
+  NOTES: [[1, 9, '走势图为示意 · 本片不构成购彩建议'], [18.5, 34, '记分卡与筹码为示意'], [40.5, 50, '单零轮盘，连开 26 次同色：2 ×（18/37）的 26 次方，约 6840 万分之一'], [53.5, 60, '正面占比为随机模拟示意']],
+  SCENES: [sChart, sWheel, t => titleCard(t, 12, 18.6, '号码不记得', '等了这么久，该轮到它了吗？', 'The Numbers Don\'t Remember', '概率'),
+    sMonte, sNoMemory, sSmall, sCoins,
+    t => predict(t, 73, ['A 更可能', '正反交替'], ['一样可能', '没有区别'], 1, { header: '先别划走 · 哪一串更可能？' }),
+    sReveal, sMemory, sBack,
+    t => toolCard(t, 134, 150.6, '先问有没有记忆', 'Does it remember?', [
+      ['没有记忆', '硬币、骰子、彩票：每次都从零开始', 'Coins, dice, lotteries start fresh every time.'],
+      ['有记忆', '人和身体：上一次会影响下一次', 'People and bodies carry the last try forward.'],
+      ['读规则', '写了"保底"的，去读规则，别靠猜', 'If there is a pity rule, read it. Don\'t guess.']], '自问：它真的记得上一次吗？'),
+    t => goldenLine(t, 150, 158.6, '运气不欠你，', '也不记账', '——下一次，永远是新的一次', 'Luck owes you nothing. It keeps no books.'),
+    t => questionCards(t, 158, 164.6, '你最常觉得"该轮到我了"是在？', 'When do you most feel "I\'m due"?', [['彩票', 'lottery'], ['抽卡', 'gacha'], ['等车', 'the bus'], ['考试', 'exams']]),
+    t => endNote(t, 164, ['蒙特卡洛 1913 年连开 26 次黑，见常见文献记载', '投篮手感：Gilovich 等 1985；Miller & Sanjurjo 2018', '走势图、记分卡为示意 · 不构成购彩建议'])],
+  cover: t => coverText(t, '30 期没开，', '该它了吧？', '号码，记不记得自己多久没出现？', '数学 · 赌徒谬论', { s1: 120, scrimW: 900 }),
+};
+
+</script>
+<script src="lib.js"></script>
+</body></html>
