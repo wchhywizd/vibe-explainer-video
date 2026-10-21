@@ -87,4 +87,6 @@ v2 是对 v1 开场的重构：从「直接报结论」改成「先让你下注�
 
 ## License
 
-代码部分（`kit/`、`samples/src/`）MIT。文档与文案 CC BY 4.0。音频见上方版权说明，不在授权范围内。
+- **代码**（`kit/`、`samples/src/` 下的 .js .py .sh .html）：MIT，见 [LICENSE](LICENSE)
+- **文档与文案**（`SKILL.md`、`README.md`、`docs/`）：CC BY 4.0，见 [LICENSE-docs](LICENSE-docs)
+- **音频** `kit/bgm-default.mp3`：**不在以上任何授权范围内**，版权归原权利人，仅作可复现素材保留
